@@ -1,0 +1,25 @@
+# English language for QweTnts. MiniMessage formatting + {0}, {1}... placeholders.
+prefix: "<gray>[<gradient:#ff6b35:#ffb347>QweTnts</gradient>]</gray> "
+
+error.no-permission: "<red>You don't have permission to use this dynamite."
+error.world-disabled: "<red>Dynamites are disabled in world <yellow>{0}</yellow>."
+error.spawn-protected: "<red>Dynamites are not allowed here (spawn protection, radius <yellow>{0}</yellow>)."
+error.dynamite-not-found: "<red>Dynamite <yellow>{0}</yellow> not found."
+error.player-not-found: "<red>Player <yellow>{0}</yellow> is not online."
+error.specify-player: "<red>Specify a player when running from console."
+error.invalid-amount: "<red>Amount must be a positive integer."
+error.usage-give: "<red>Usage: <yellow>/qtnt give <id> [player] [amount]</yellow>."
+error.raid-block: "<red>You cannot place obsidian here for another <yellow>{0}</yellow> (raid block)."
+
+antilab.cooldown: "<red>Too fast! Wait a moment before lighting another dynamite."
+antilab.player-limit: "<red>You already have too many primed dynamites in the air. Wait for them to explode."
+antilab.chunk-limit: "<red>Too many primed dynamites in this chunk."
+
+command.reload: "<green>Configuration reloaded. Loaded dynamites: <yellow>{0}</yellow>."
+command.list-header: "<gold>Loaded dynamites:"
+command.list-item: "  <gray>- <white>{0}</white> <dark_gray>({1}, <yellow>power={2}</yellow>, explosion=<aqua>{3}</aqua>)"
+command.give-success: "<green>Gave <yellow>{0} × {1}</yellow> to <yellow>{2}</yellow>."
+command.help-header: "<gold>QweTnts commands:"
+command.help-reload: "  <white>/qtnt reload<gray> — reload dynamite configs"
+command.help-list: "  <white>/qtnt list<gray> — list loaded dynamites"
+command.help-give: "  <white>/qtnt give <id> [player] [amount]<gray> — give dynamite"

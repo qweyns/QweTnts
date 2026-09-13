@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, arena/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Checkout QweProtectionStones
+        uses: actions/checkout@v4
+        with:
+          repository: qweyns/QweProtectionStones
+          ref: main
+          path: QweProtectionStones
+
+      - name: Install QweProtectionStones to local repo
+        working-directory: QweProtectionStones
+        run: mvn -B install -DskipTests
+
+      - name: Build QweTnts
+        run: mvn -B package
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QweTnts
+          path: target/QweTnts-*.jar

@@ -1,0 +1,44 @@
+# Динамит B — ×10 радиус урона осаде.
+#
+# Крафт по ТЗ: 5 пороха + 2 песка + 2 ДИНАМИТА A. Ингредиент A задаётся через
+# custom-type (ссылается на name динамита A).
+name: dynamite_b
+display_name: "Динамит B"
+
+explosion-type: DYNAMITE_B
+radius-multiplier: 10.0
+siege-damage: 1
+
+fuse-seconds: 5
+power: 8                 # мощность блоков умеренная; ×10 — только радиус урона осаде
+mode: ball
+cut-entity-damage: 0
+works-in-water: false
+works-in-lava: false
+
+breakable-blocks: { }
+
+raid-block:
+  enabled: false
+  duration-seconds: 300
+
+item:
+  material: TNT
+  display_name: "&cДинамит B"
+  lore:
+    - ""
+    - "&8 • &fРадиус урона осаде в &c10 раз&f больше обычного."
+    - "&8 • &fФитиль: &c5&f секунд."
+    - "&8 • &cАнти-лаг: не рекомендуется подрывать больше 1 штуки за раз."
+  glow: true
+
+recipe:
+  shape:
+    - "GSG"
+    - "GAG"
+    - "GSG"
+  ingredients:
+    G: GUNPOWDER
+    S: SAND
+    A:
+      custom-type: dynamite_a
