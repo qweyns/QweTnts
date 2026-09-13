@@ -1,0 +1,41 @@
+# Динамит A — ×3 радиус урона осаде, радиус взрыва блоков увеличен в 1.5–2 раза,
+# фитиль 5 секунд. Крафт: 5 пороха + 2 песка + 2 ТНТ.
+name: dynamite_a
+display_name: "Динамит A"
+
+explosion-type: DYNAMITE_A
+radius-multiplier: 3.0
+siege-damage: 1
+
+fuse-seconds: 5
+power: 6                 # ванильная TNT = 4
+mode: vanilla
+cut-entity-damage: 0
+works-in-water: false
+works-in-lava: false
+
+breakable-blocks: { }
+
+raid-block:
+  enabled: false
+  duration-seconds: 300
+
+item:
+  material: TNT
+  display_name: "&6Динамит A"
+  lore:
+    - ""
+    - "&8 • &fРадиус урона осаде в &e3 раза&f больше обычного."
+    - "&8 • &fФитиль: &e5 &fсекунд."
+    - "&8 • &fВредит любым приватах кроме незерита."
+  glow: true
+
+recipe:
+  shape:
+    - "GSG"
+    - "GTG"
+    - "GSG"
+  ingredients:
+    G: GUNPOWDER
+    S: SAND
+    T: TNT

@@ -1,0 +1,47 @@
+# C4 — ломает обсидиан/плачущий обсидиан, вредит незерит-приватам,
+# оставляет рейд-блок 5 минут.
+name: c4
+display_name: "C4"
+
+explosion-type: C4
+radius-multiplier: 1.0
+siege-damage: 1
+
+fuse-seconds: 4
+power: 4
+mode: vanilla
+cut-entity-damage: 0
+works-in-water: false
+works-in-lava: false
+
+breakable-blocks:
+  OBSIDIAN:
+    chance: 100
+    drop-chance: 0
+  CRYING_OBSIDIAN:
+    chance: 100
+    drop-chance: 0
+
+raid-block:
+  enabled: true
+  duration-seconds: 300
+
+item:
+  material: TNT
+  display_name: "&7C4"
+  lore:
+    - ""
+    - "&8 • &fРадиус как у обычной ТНТ."
+    - "&8 • &fЛомает обсидиан и плачущий обсидиан."
+    - "&8 • &fВредит незерит-приватам."
+    - "&8 • &cРейд-блок 5 минут на месте взрыва."
+  glow: true
+
+recipe:
+  shape:
+    - "GGG"
+    - "GTG"
+    - "GGG"
+  ingredients:
+    G: GUNPOWDER
+    T: TNT

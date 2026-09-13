@@ -1,0 +1,26 @@
+# Русский язык QweTnts. Формат строк — MiniMessage + плейсхолдеры {0}, {1}...
+# Legacy-цвета (&c/&l) поддерживаются для совместимости со старыми конфигами.
+prefix: "<gray>[<gradient:#ff6b35:#ffb347>QweTnts</gradient>]</gray> "
+
+error.no-permission: "<red>У вас нет прав на использование этого динамита."
+error.world-disabled: "<red>Динамиты отключены в мире <yellow>{0}</yellow>."
+error.spawn-protected: "<red>Здесь нельзя использовать динамиты (защита спавна, радиус <yellow>{0}</yellow>)."
+error.dynamite-not-found: "<red>Динамит <yellow>{0}</yellow> не найден."
+error.player-not-found: "<red>Игрок <yellow>{0}</yellow> не в сети."
+error.specify-player: "<red>Укажите игрока при вызове из консоли."
+error.invalid-amount: "<red>Количество должно быть положительным числом."
+error.usage-give: "<red>Использование: <yellow>/qtnt give <id> [игрок] [количество]</yellow>."
+error.raid-block: "<red>Здесь нельзя ставить обсидиан ещё <yellow>{0}</yellow> (рейд-блок)."
+
+antilab.cooldown: "<red>Слишком часто! Подождите немного перед следующим динамитом."
+antilab.player-limit: "<red>У вас уже слишком много динамита в воздухе. Подождите взрыва."
+antilab.chunk-limit: "<red>В этом чанке слишком много динамита одновременно."
+
+command.reload: "<green>Конфигурация перезагружена. Загружено динамитов: <yellow>{0}</yellow>."
+command.list-header: "<gold>Доступные динамиты:"
+command.list-item: "  <gray>- <white>{0}</white> <dark_gray>({1}, <yellow>power={2}</yellow>, explosion=<aqua>{3}</aqua>)"
+command.give-success: "<green>Выдано <yellow>{0} × {1}</yellow> игроку <yellow>{2}</yellow>."
+command.help-header: "<gold>QweTnts команды:"
+command.help-reload: "  <white>/qtnt reload<gray> — перезагрузить конфиги динамита"
+command.help-list: "  <white>/qtnt list<gray> — список загруженных динамитов"
+command.help-give: "  <white>/qtnt give <id> [игрок] [кол-во]<gray> — выдать динамит"

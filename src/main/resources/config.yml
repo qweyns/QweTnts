@@ -1,0 +1,44 @@
+# Конфигурация QweTnts
+#
+# Каждый динамит настраивается отдельным YAML-файлом в папке dynamites/.
+# При первом запуске туда копируются стандартные динамиты (A, B, C4, Разрывная волна).
+
+settings:
+  # Язык сообщений: ru / en (можно класть свои lang/*.yml)
+  language: ru
+
+  # Период очистки истёкших рейд-блоков (в тиках, 20 тиков = 1 сек)
+  raid-block-cleanup-interval-ticks: 600
+  # Период автосохранения raid-blocks.yml на диск (в тиках)
+  raid-block-autosave-interval-ticks: 2400
+
+  # Антилаг (Фаза 1 §7 ТЗ)
+  anti-lag:
+    # Максимум одновременно горящих TNTPrimed от одного игрока (0 = без лимита)
+    max-primed-per-player: 32
+    # Максимум горящих ТНТ в одном чанке
+    max-primed-per-chunk: 64
+    # Кулдаун между активациями динамита на игрока (мс)
+    activation-cooldown-millis: 250
+    # Если power динамита выше этого порога — в лог пишется предупреждение.
+    large-explosion-threshold-power: 16
+    # Резерв под тиковую обработку крупных взрывов (Фаза 2)
+    large-explosion-blocks-per-tick: 512
+    large-explosion-tick-period: 1
+
+  # Ограничения по мирам и зонам
+  worlds:
+    # BLOCKED: все миры разрешены, кроме blocked-worlds
+    # ALLOWED: только миры из allowed-worlds
+    mode: BLOCKED
+    allowed-worlds: []
+    blocked-worlds: []
+    # Запрет радиуса вокруг спавна обычного мира (0 = выключено)
+    spawn-radius: 0
+
+  # Рейт-лимит собственных алертов (атака на приват)
+  alerts:
+    attack-alert-cooldown-millis: 30000
+
+  # Анонимная bStats статистика (https://bstats.org)
+  bstats-enabled: true
