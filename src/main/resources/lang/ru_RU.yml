@@ -1,0 +1,69 @@
+# ============================================================
+#   QweTnts — русский язык (ru_RU)
+# ============================================================
+#  Оформление — как в QweProtectStones:
+#    • MiniMessage-теги: <#RRGGBB>, <bold>, <gradient:#A:#B>...</gradient>
+#    • legacy-коды тоже понимаются: &c, &l, &#RRGGBB
+#    • плейсхолдеры в стиле %name%, %prefix% подставляется автоматически
+#    • любой ключ можно сделать списком — каждая строка '-' уйдёт отдельной
+#      строкой чата
+#  НЕ НАДО удалять ключи: недостающие ключи плагин доберёт из jar и
+#  напишет предупреждение в консоль.
+# ============================================================
+
+prefix: "<bold><gradient:#FF6B35:#FFB347>QweTnts</gradient></bold> <#A79FC0>» "
+
+# --- Общее ---
+no_permission: "%prefix%<#FB7185>У вас нет прав на этот динамит."
+unknown_subcommand: "%prefix%<#FB7185>Неизвестная подкоманда. Напишите <#FDE68A>/%command% help"
+unknown_owner: "Неизвестно"
+players_only: "%prefix%<#FB7185>Эта команда доступна только игрокам."
+
+# --- Установка и поджог ---
+dynamite_placed: "%prefix%<#86EFAC>%name% <#86EFAC>установлен."
+ignition_hint: "%prefix%<#A79FC0>Подожгите его огнивом, огнём или другим взрывом."
+dynamite_ignited: "%prefix%<#FDE68A>%name% <#A79FC0>горит!"
+dynamite_removed: "%prefix%<#A79FC0>%name% <#A79FC0>снят и вернулся в инвентарь."
+cannot_place_here: "%prefix%<#FB7185>Сюда динамит поставить нельзя."
+region_denied: "%prefix%<#FB7185>Здесь чужой приват — ставить динамит нельзя."
+
+# --- Запреты ---
+world_disabled: "%prefix%<#FB7185>Динамиты отключены в мире <#FDE68A>%world%<#FB7185>."
+spawn_protected: "%prefix%<#FB7185>Здесь нельзя использовать динамиты (защита спавна, радиус <#FDE68A>%radius%<#FB7185>)."
+raid_block_denied: "%prefix%<#FB7185>Здесь нельзя ставить обсидиан ещё <#FDE68A>%time%<#FB7185> (рейд-блок)."
+
+# --- Анти-лаг ---
+cooldown: "%prefix%<#FB7185>Слишком часто! Подождите <#FDE68A>%seconds%<#FB7185>."
+player_limit: "%prefix%<#FB7185>У вас уже слишком много горящего динамита — дождитесь взрывов."
+chunk_limit: "%prefix%<#FB7185>В этом чанке слишком много горящего динамита."
+
+# --- Время (используется в подстановках) ---
+time_seconds: "<#FDE68A>%seconds% <#A79FC0>сек"
+time_minutes_seconds: "<#FDE68A>%minutes% <#A79FC0>мин <#FDE68A>%seconds% <#A79FC0>сек"
+
+# --- Команды ---
+command_reload: "%prefix%<#86EFAC>Конфигурация перезагружена. Загружено динамитов: <#FDE68A>%count%<#86EFAC>."
+command_list_header: "%prefix%<#A79FC0>Доступные динамиты (<#FDE68A>%count%<#A79FC0>):"
+command_list_empty: "%prefix%<#FB7185>Ни одного динамита не загружено — проверьте папку dynamites/."
+command_list_item: "  <#A79FC0>• <#F2EFFA>%name% <#A79FC0>(<#A78BFA>%id%<#A79FC0>) мощность <#FDE68A>%power%<#A79FC0>, урон осаде <#FDE68A>%siege%<#A79FC0>, поджог: <#FDE68A>%ignite%"
+command_list_footer: "%prefix%<#A79FC0>Выдать: <#FDE68A>/qtnt give <id> [игрок] [кол-во]"
+usage_give: "%prefix%<#FB7185>Использование: <#FDE68A>/%command% give <id> [игрок] [кол-во]"
+dynamite_not_found: "%prefix%<#FB7185>Динамит <#FDE68A>%id% <#FB7185>не найден."
+player_not_found: "%prefix%<#FB7185>Игрок <#FDE68A>%player% <#FB7185>не в сети."
+specify_player: "%prefix%<#FB7185>Из консоли нужно указать игрока."
+invalid_amount: "%prefix%<#FB7185>Количество должно быть числом от 1 до 320 (<#FDE68A>%amount%<#FB7185>)."
+give_success: "%prefix%<#86EFAC>Выдано <#FDE68A>%amount% × %name% <#86EFAC>игроку <#FDE68A>%player%<#86EFAC>."
+give_success_partial: "%prefix%<#FDE68A>Часть не влезла в инвентарь: <#FDE68A>%amount% × %name% <#A79FC0>выдано, остальное брошено под ноги <#FDE68A>%player%<#A79FC0>."
+
+command_help:
+  - "%prefix%<#A79FC0>Команды QweTnts:"
+  - "  <#FDE68A>/qtnt list<#A79FC0> — список динамитов"
+  - "  <#FDE68A>/qtnt give <id> [игрок] [кол-во]<#A79FC0> — выдать динамит"
+  - "  <#FDE68A>/qtnt reload<#A79FC0> — перезагрузить config.yml и dynamites/"
+
+# --- Подстановки ---
+value_auto: "сам"
+value_manual: "вручную"
+
+# --- Логи (в консоль, разметка не нужна) ---
+log_region_destroyed: "[RAID] Приват %id% (тип %type%), владелец %owner% уничтожен. Последний атакующий: %attacker%"

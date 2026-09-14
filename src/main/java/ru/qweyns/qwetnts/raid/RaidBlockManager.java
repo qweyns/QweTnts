@@ -109,11 +109,16 @@ public final class RaidBlockManager {
         long now = System.currentTimeMillis();
         StringWriter sw = new StringWriter(1024);
         for (var worldEntry : byWorld.entrySet()) {
-            sw.write(worldEntry.getKey()).write(":\n");
+            sw.write(worldEntry.getKey());
+            sw.write(":\n");
             for (var posEntry : worldEntry.getValue().entrySet()) {
                 long v = posEntry.getValue();
                 if (v <= now) continue;
-                sw.write("  ").write(posEntry.getKey().serialize()).write(": ").write(Long.toString(v)).write('\n');
+                sw.write("  ");
+                sw.write(posEntry.getKey().serialize());
+                sw.write(": ");
+                sw.write(Long.toString(v));
+                sw.write('\n');
             }
         }
         return sw.toString();

@@ -36,8 +36,17 @@
   - секция `settings.worlds` с режимами `ALLOWED`/`BLOCKED`;
   - радиус защиты спавна обычного мира (`spawn-radius`).
 - 🔐 **Права по типам**: `qwetnts.type.<dynamite_id>` с фоллбеком на `qwetnts.use`.
-- 🔤 **i18n/l10n**: все сообщения вынесены в `lang/ru.yml` и `lang/en.yml`; формат
-  строк — **MiniMessage** (Adventure) с автоматической поддержкой legacy-цвета `&c/&l`.
+- 🔤 **i18n/l10n**: все сообщения — в `lang/ru_RU.yml` и `lang/en_US.yml`,
+  архитектура и оформление один-в-один как в QweProtectStones
+  (`LanguageManager` + `%prefix%` + MiniMessage + legacy `&c/&#RRGGBB`).
+  Отсутствующий ключ не уходит в чат сырым текстом.
+- 🔥 **Два режима поджога**: динамит либо ставится блоком и ждёт огня
+  (по умолчанию, `auto-ignite: false`), либо загорается сразу из руки.
+  Установленные заряды можно поджечь огнивом, огнём, лавой, ударом или
+  другим взрывом — цепная детонация настраивается.
+- 🧱 **Модель взрывоустойчивости**: решение «ломать блок или нет» считается по
+  ванильной формуле `(resistance + 0.3) * scale` с потолком `max-resistance`
+  и явными правилами по материалам (см. ниже).
 - 📊 **bStats** (plugin id **34030**):
   - количество загруженных динамита;
   * счётчик взрывов по типам (AdvancedPie);
@@ -54,20 +63,127 @@
 - 📦 **maven-shade-plugin** с релокацией `org.bstats` в `ru.qweyns.qwetnts.libs.bstats`;
 - 🧪 Базовые JUnit-тесты + GitHub Actions CI на JDK 21 (собирает jar-артефакт).
 
-## Сборка
+## Механика поджога
 
-Требуется JDK 21 и локально установленный QweProtectStones:
+По умолчанию (`settings.dynamites.auto-ignite: false`) динамит **не поджигает
+сам себя**: игрок ставит его обычным блоком TNT, а поджигает отдельно — как на
+HolyWorld.
 
-```bash
-# Установить QPS в локальный Maven-репозиторий
-cd ../QweProtectionStones && mvn install -DskipTests
+| Как поджечь | Условие |
+|---|---|
+| Огниво / огненный заряд | всегда |
+| Огонь, лава, молния, распространение огня | всегда |
+| Другой взрыв (цепная детонация) | `settings.dynamites.chain-radius` > 0 |
+| Удар кулаком | `settings.dynamites.punch-ignites: true` |
+| Сразу из руки | `settings.dynamites.auto-ignite: true` |
 
-# Собрать QweTnts
-cd ../QweTnts && mvn clean package
+Переопределить режим для конкретного динамита можно ключом `auto-ignite:` в
+его файле в `dynamites/` — он главнее глобальной настройки.
+
+Установка идёт через обычный `BlockPlaceEvent`, поэтому защиту приватов QPS
+не обойти. Сломанный установленный динамит возвращается предметом с PDC.
+
+## Как динамит ломает блоки
+
+Vanilla кладёт в `blockList` только то, что разрушил бы обычный TNT — обсидиан
+туда не попадает никогда. Поэтому судьба блока решается так:
+
+1. **Неразрушимое** (бедрок, порталы, командные блоки) — никогда не трогаем.
+2. **Явное правило** `breaking.blocks.<MATERIAL>` — решает только
+   `break-chance`, сопротивление не важно. Это единственный корректный способ
+   дать динамиту пробить обсидиан (1200).
+3. **Потолок** `breaking.max-resistance` — всё, что выше, не трогаем.
+4. **Формула** `(resistance + 0.3) * resistance-scale <= power`.
+5. **Трансформация** (`transformable-blocks`) важнее ломания: древние обломки
+   сначала деградируют в обсидиан.
+
+Отдельно проверяются приваты QPS: ядро (`isCore`) неразрушимо, остальные блоки
+ломаются только при флаге `EXPLOSION_DAMAGE`.
+
+```yaml
+breaking:
+  max-resistance: 1200
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  blocks:
+    OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0     # иначе рейд бесконечно возобновляем
 ```
 
-Итоговый jar — `target/QweTnts-1.0.0.jar`. В CI (GitHub Actions) это делает
-автоматически воркфлоу `.github/workflows/build.yml`.
+## Аудит и архитектура
+
+Подробный разбор ошибок старой версии и описание новой архитектуры —
+в [`docs/AUDIT.md`](docs/AUDIT.md).
+
+## Сборка
+
+Требуется JDK 21 и **локально установленный QweProtectStones**.
+
+> ⚠️ `org.qweyns:QweProtectStones:2.0.0` **не публикуется** ни в один публичный
+> репозиторий (ни в Maven Central, ни в papermc). Зависимость разрешается
+> только из вашего `~/.m2/repository`, поэтому QPS обязательно нужно собрать
+> из исходников перед первой сборкой QweTnts.
+
+```bash
+# 1. Установить QPS в локальный Maven-репозиторий (ветка main, версия 2.0.0)
+cd ../QweProtectionStones
+git checkout main && git pull
+mvn clean install -DskipTests
+
+# 2. Собрать QweTnts
+cd ../QweTnts
+mvn clean package
+```
+
+Итоговый jar — `target/QweTnts-1.0.0.jar`. В CI (GitHub Actions) то же самое
+делает воркфлоу `.github/workflows/build.yml`.
+
+### Сборка в IntelliJ IDEA (без терминала)
+
+В проекте лежат две готовые конфигурации запуска (папка `.run`), поэтому
+вручную ничего вводить не нужно:
+
+1. Откройте проект QweTnts: **File → Open…** → папка `QweTnts`.
+2. Справа откройте вкладку **Maven** (если её нет: **View → Tool Windows → Maven**)
+   и нажмите **⟳ Reload All Maven Projects**.
+3. В выпадающем списке конфигураций сверху (рядом с зелёным ▶) выберите
+   **«Собрать QweTnts (одна кнопка: QPS + плагин)»** и нажмите **▶ Run**.
+   Эта конфигурация сама сначала выполнит установку QweProtectStones
+   (шаг «1) Установить QweProtectStones»), а затем соберёт QweTnts.
+4. Дождитесь `BUILD SUCCESS` в окне **Run** (две сборки подряд, ~1–2 минуты).
+5. Итоговый файл появится в дереве проекта: `QweTnts/target/QweTnts-1.0.0.jar`
+   (правой кнопкой → **Open In → File Manager/Explorer**).
+
+> Флаг `-U` больше не нужен: в `pom.xml` для всех репозиториев выставлен
+> `updatePolicy=always`, поэтому Maven не держит закешированную ошибку
+> «was not found ... during a previous attempt».
+
+### Если IDE/Maven пишет «was not found in https://repo.papermc.io/...»
+
+Maven один раз попытался скачать QPS с papermc, не нашёл и **закешировал
+неудачу**. После локальной установки QPS кеш надо сбросить — иначе ошибка
+будет повторяться, даже когда артефакт уже лежит в `~/.m2`:
+
+```bash
+# Вариант 1 (рекомендуемый): принудительно обновить всё
+cd ../QweTnts && mvn -U clean package
+
+# Вариант 2: удалить только запись о QPS
+rm -rf ~/.m2/repository/org/qweyns/QweProtectStones
+```
+
+В IntelliJ IDEA: после `mvn install` для QPS нажмите **Reload All Maven
+Projects** (⟳ в панели Maven). Если зависимость всё ещё красная — включите
+**Settings → Build Tools → Maven → Always update snapshots** и перезагрузите
+проект, либо выполните `mvn -U clean package` в терминале IDE и снова Reload.
+
+Проверить, что артефакт установлен:
+
+```bash
+ls ~/.m2/repository/org/qweyns/QweProtectStones/2.0.0/
+# ожидаемо: QweProtectStones-2.0.0.jar  QweProtectStones-2.0.0.pom
+```
 
 ## Конфигурация QPS (regions.yml)
 
@@ -114,17 +230,20 @@ recipe:
 
 ## Права
 
-| Право                     | По умолчанию | Описание                                            |
-|---------------------------|--------------|-----------------------------------------------------|
-| `qwetnts.use`             | `true`       | Базовое право на активацию динамита (фоллбек)       |
-| `qwetnts.type.<id>`       | `true`       | Право на конкретный динамит (`c4`, `shockwave` ...) |
-| `qwetnts.admin`           | `op`         | `/qtnt reload|list|give`                            |
+| Право                        | По умолчанию | Описание                                          |
+|------------------------------|--------------|---------------------------------------------------|
+| `qwetnts.use`                | `true`       | Базовое право на использование динамитов (фоллбек)|
+| `qwetnts.type.<id>`          | `op`         | Право на конкретный динамит (`c4`, `shockwave` …) |
+| `qwetnts.admin`              | `op`         | `/qtnt reload\|list\|give`                       |
+| `qwetnts.bypass.world`       | `op`         | Игнорировать запрет миров и радиус спавна         |
+| `qwetnts.bypass.region`      | `op`         | Ставить динамиты в чужих приватах                 |
+| `qwetnts.bypass.antilag`     | `op`         | Игнорировать кулдаун и лимиты анти-лага           |
+| `qwetnts.bypass.raidblock`   | `op`         | Ставить обсидиан на месте рейд-блока              |
 
 ## Планы (Фаза 2, по ТЗ)
 
 - Спавнер-майнинг с шансом дропа;
 - временный лёд и кумулятивный (направленный) заряд;
-- цепная детонация;
 - руны на ТНТ и ТНТ-пушка;
 - DiscordSRV-алерты и маркеры Dynmap/BlueMap;
 - интеграция с Economy (Vault/PlayerPoints);

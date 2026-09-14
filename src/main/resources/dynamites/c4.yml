@@ -1,5 +1,8 @@
-# C4 — ломает обсидиан/плачущий обсидиан, вредит незерит-приватам,
-# оставляет рейд-блок 5 минут.
+# C4 — ломает обсидиан и плачущий обсидиан, древние обломки выбивает,
+# вредит незерит-приватам и оставляет рейд-блок на 5 минут.
+#
+# Обсидиан пробивается НЕ силой взрыва (vanilla его вообще не трогает),
+# а явным правилом в breaking.blocks — это единственный корректный способ.
 name: c4
 display_name: "C4"
 
@@ -9,18 +12,28 @@ siege-damage: 1
 
 fuse-seconds: 4
 power: 4
-mode: vanilla
 cut-entity-damage: 0
 works-in-water: false
 works-in-lava: false
 
-breakable-blocks:
-  OBSIDIAN:
-    chance: 100
-    drop-chance: 0
-  CRYING_OBSIDIAN:
-    chance: 100
-    drop-chance: 0
+# auto-ignite: false
+
+# --- Что ломает взрыв --------------------------------------------------
+breaking:
+  # 1200 — потолок семейства обсидиана и древних обломков.
+  max-resistance: 1200
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  blocks:
+    OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0        # обсидиан не выпадает — иначе рейд бесконечен
+    CRYING_OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    ANCIENT_DEBRIS:
+      break-chance: 100
+      drop-chance: 0
 
 raid-block:
   enabled: true
@@ -32,8 +45,7 @@ item:
   lore:
     - ""
     - "&8 • &fРадиус как у обычной ТНТ."
-    - "&8 • &fЛомает обсидиан и плачущий обсидиан."
-    - "&8 • &fВредит незерит-приватам."
+    - "&8 • &fЛомает обсидиан, плачущий обсидиан и древние обломки."
     - "&8 • &cРейд-блок 5 минут на месте взрыва."
   glow: true
 

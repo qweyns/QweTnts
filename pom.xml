@@ -86,6 +86,7 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
                                         <exclude>module-info.class</exclude>
                                     </excludes>
                                 </filter>
@@ -97,14 +98,50 @@
         </plugins>
     </build>
 
+    <!--
+        updatePolicy=always: Maven кеширует НЕУДАЧНУЮ попытку скачать артефакт
+        и потом долго не повторяет её («was not found ... during a previous
+        attempt. This failure was cached»). Это особенно мешает с
+        org.qweyns:QweProtectStones, который не лежит ни в одном публичном
+        репозитории и появляется в ~/.m2 только после локальной сборки.
+        С always любая сборка сама перепроверяет наличие артефакта, и ключ -U
+        больше не нужен.
+    -->
     <repositories>
         <repository>
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
         </repository>
         <repository>
             <id>codemc-repo</id>
             <url>https://repo.codemc.io/repository/maven-public/</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -116,6 +153,14 @@
             <scope>provided</scope>
         </dependency>
 
+        <!--
+            QPS не публикуется ни в один публичный репозиторий: зависимость
+            разрешается только из локального ~/.m2. Перед сборкой выполните
+              cd ../QweProtectionStones && mvn clean install -DskipTests
+            Если Maven/IDE уже закешировал неудачу ("was not found in
+            https://repo.papermc.io/..."), соберите с ключом -U либо удалите
+            ~/.m2/repository/org/qweyns/QweProtectStones — см. README, раздел «Сборка».
+        -->
         <dependency>
             <groupId>org.qweyns</groupId>
             <artifactId>QweProtectStones</artifactId>

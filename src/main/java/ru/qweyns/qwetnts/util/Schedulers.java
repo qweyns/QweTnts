@@ -27,12 +27,10 @@ public final class Schedulers {
                                                        @NotNull Location loc,
                                                        @NotNull Runnable task,
                                                        long delayTicks) {
+        // RegionScheduler#execute возвращает void, поэтому единая точка входа —
+        // runDelayed (Consumer<ScheduledTask>), она же даёт отменяемую задачу.
         RegionScheduler rs = plugin.getServer().getRegionScheduler();
-        Consumer<ScheduledTask> wrap = t -> task.run();
-        if (delayTicks <= 0) {
-            return rs.execute(plugin, loc, wrap);
-        }
-        return rs.runDelayed(plugin, loc, wrap, delayTicks);
+        return rs.runDelayed(plugin, loc, t -> task.run(), Math.max(0L, delayTicks));
     }
 
     /** Периодическая глобальная задача (ГП, но привязана к глобальному региону). */

@@ -1,89 +1,182 @@
 package ru.qweyns.qwetnts.antilag;
 
 import org.bukkit.Chunk;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import ru.qweyns.qwetnts.QweTnts;
+import ru.qweyns.qwetnts.config.Lang;
 import ru.qweyns.qwetnts.config.Settings;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
- * Счётчики одновременно горящих TNTPrimed на игрока/чанк и кулдаун активации.
+ * Защита от лаг-машин: сколько зарядов уже в воздухе у игрока и в чанке плюс
+ * кулдаун активации.
  *
- * <p>Все методы вызываются из главного потока (при спавне и взрыве ТНТ),
- * поэтому ConcurrentHashMap без дополнительной синхронизации безопасны.</p>
+ * <p>Вызывается только из главного потока при установке/поджоге и взрыве,
+ * поэтому {@link ConcurrentHashMap} без дополнительной синхронизации безопасны.</p>
+ *
+ * <p>Настройки читаются через {@code Supplier}: после {@code /qtnt reload}
+ * лимиты подхватываются без пересоздания объекта.</p>
  */
 public final class AntiLag {
 
-    private final QweTnts plugin;
-    private final Settings s;
+    /** Причина отказа; {@link #NONE} — можно действовать. */
+    public enum Deny {
+        NONE,
+        COOLDOWN,
+        PLAYER_LIMIT,
+        CHUNK_LIMIT
+    }
 
-    /** Игрок -> кол-во зажжённых ТНТ, спавненных им. */
+    private record ChunkKey(UUID worldId, int cx, int cz) {
+        static ChunkKey of(@NotNull Chunk chunk) {
+            return new ChunkKey(chunk.getWorld().getUID(), chunk.getX(), chunk.getZ());
+        }
+    }
+
+    private final Plugin plugin;
+    private final Supplier<Settings.AntiLag> config;
+
     private final Map<UUID, Integer> perPlayer = new ConcurrentHashMap<>();
-    /** Ключ чанка (packed) -> кол-во зажжённых ТНТ. */
-    private final Map<Long, Integer> perChunk = new ConcurrentHashMap<>();
+    private final Map<ChunkKey, Integer> perChunk = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> activations = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastMessage = new ConcurrentHashMap<>();
 
-    /** Игрок -> millis последней активации. */
-    private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-
-    public AntiLag(QweTnts plugin, Settings s) {
+    public AntiLag(@NotNull Plugin plugin, @NotNull Supplier<Settings.AntiLag> config) {
         this.plugin = plugin;
-        this.s = s;
+        this.config = config;
     }
 
     /**
-     * Проверяет, можно ли сейчас зажечь очередную ТНТ от указанного игрока.
-     * При успехе увеличивает счётчики.
+     * Попытка «активировать» динамит (установить или поджечь с руки):
+     * проверяет кулдаун и лимиты, при успехе увеличивает счётчики.
      *
-     * @return null если можно спавнить; иначе — ключ i18n-сообщения об ошибке.
+     * @return {@link Deny#NONE} если можно, иначе причина отказа
      */
-    public @Nullable String tryAcquire(UUID playerUuid, Chunk chunk) {
+    public @NotNull Deny tryActivate(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
+        Settings.AntiLag cfg = config.get();
         long now = System.currentTimeMillis();
-        Long last = cooldowns.get(playerUuid);
-        if (last != null && now - last < s.activationCooldownMs) {
-            return "antilag.cooldown";
-        }
-        if (s.maxPrimedPerPlayer > 0) {
-            int c = perPlayer.getOrDefault(playerUuid, 0);
-            if (c >= s.maxPrimedPerPlayer) {
-                return "antilag.player-limit";
+
+        if (playerUuid != null && cfg.activationCooldownMillis() > 0) {
+            Long last = activations.get(playerUuid);
+            if (last != null && now - last < cfg.activationCooldownMillis()) {
+                return Deny.COOLDOWN;
             }
         }
-        if (s.maxPrimedPerChunk > 0) {
-            long key = chunkKey(chunk);
-            int c = perChunk.getOrDefault(key, 0);
-            if (c >= s.maxPrimedPerChunk) {
-                return "antilag.chunk-limit";
-            }
+        if (playerUuid != null && cfg.maxPrimedPerPlayer() > 0
+                && perPlayer.getOrDefault(playerUuid, 0) >= cfg.maxPrimedPerPlayer()) {
+            return Deny.PLAYER_LIMIT;
         }
-        cooldowns.put(playerUuid, now);
-        perPlayer.merge(playerUuid, 1, Integer::sum);
-        perChunk.merge(chunkKey(chunk), 1, Integer::sum);
-        return null;
+        if (chunk != null && cfg.maxPrimedPerChunk() > 0
+                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= cfg.maxPrimedPerChunk()) {
+            return Deny.CHUNK_LIMIT;
+        }
+
+        if (playerUuid != null) activations.put(playerUuid, now);
+        register(playerUuid, chunk);
+        return Deny.NONE;
     }
 
-    /** Уведомить антилаг, что ТНТ от данного игрока взорвалась — декремент. */
-    public void release(@Nullable UUID playerUuid, Chunk chunk) {
+    /**
+     * Только учёт already-зажжённого заряда (без кулдауна): поджог уже
+     * установленного динамита не должен упираться в кулдаун активации,
+     * иначе поджечь связку можно было бы только по одному.
+     *
+     * @return false, если превышен лимит на игрока/чанк
+     */
+    public boolean tryRegister(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
+        Settings.AntiLag cfg = config.get();
+
+        if (playerUuid != null && cfg.maxPrimedPerPlayer() > 0
+                && perPlayer.getOrDefault(playerUuid, 0) >= cfg.maxPrimedPerPlayer()) {
+            return false;
+        }
+        if (chunk != null && cfg.maxPrimedPerChunk() > 0
+                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= cfg.maxPrimedPerChunk()) {
+            return false;
+        }
+
+        register(playerUuid, chunk);
+        return true;
+    }
+
+    /** Снять учёт после взрыва. */
+    public void release(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
         if (playerUuid != null) {
-            perPlayer.computeIfPresent(playerUuid, (u, v) -> v <= 1 ? null : v - 1);
+            perPlayer.computeIfPresent(playerUuid, (uuid, count) -> count <= 1 ? null : count - 1);
         }
-        long key = chunkKey(chunk);
-        Integer c = perChunk.get(key);
-        if (c == null) return;
-        if (c <= 1) perChunk.remove(key);
-        else perChunk.put(key, c - 1);
+        if (chunk != null) {
+            perChunk.computeIfPresent(ChunkKey.of(chunk), (key, count) -> count <= 1 ? null : count - 1);
+        }
     }
 
-    private static long chunkKey(Chunk c) {
-        // Упаковка: старшие 32 бита — hash uid мира, следующие 16 бит — cx & 0xFFFF,
-        // младшие 16 бит — cz & 0xFFFF. Для счётчиков этого хватает.
-        int cx = c.getX();
-        int cz = c.getZ();
-        int wh = c.getWorld().getUID().hashCode();
-        return ((long) wh << 32)
-                | (((long) (cx & 0xFFFF)) << 16)
-                | (cz & 0xFFFF);
+    /**
+     * Отправить игроку сообщение об отказе с рейт-лимитом: при спаме кликами
+     * чат не забивается одинаковыми строками.
+     */
+    public void notify(@Nullable Player player, @NotNull Lang lang, @NotNull String key,
+                       String... placeholders) {
+        if (player == null) return;
+
+        long now = System.currentTimeMillis();
+        long cooldown = config.get().messageCooldownMillis();
+        if (cooldown > 0) {
+            Long last = lastMessage.get(player.getUniqueId());
+            if (last != null && now - last < cooldown) return;
+            lastMessage.put(player.getUniqueId(), now);
+        }
+        lang.send(player, key, placeholders);
+    }
+
+    /** Сколько миллисекунд осталось ждать (0 — можно сразу). */
+    public long cooldownRemaining(@Nullable UUID playerUuid) {
+        if (playerUuid == null) return 0L;
+        Long last = activations.get(playerUuid);
+        if (last == null) return 0L;
+        long cooldown = config.get().activationCooldownMillis();
+        return Math.max(0L, last + cooldown - System.currentTimeMillis());
+    }
+
+    /** Периодическая чистка: карты не должны расти бесконечно. */
+    public void cleanup() {
+        long cooldown = Math.max(1L, config.get().activationCooldownMillis());
+        long messageCooldown = Math.max(1L, config.get().messageCooldownMillis());
+        long now = System.currentTimeMillis();
+
+        activations.entrySet().removeIf(entry -> now - entry.getValue() > cooldown * 4);
+        lastMessage.entrySet().removeIf(entry -> now - entry.getValue() > messageCooldown * 4);
+
+        // Счётчики, которые «зависли» (заряд исчез без взрыва), чистим целиком:
+        // если взрывов не было, то и perPlayer/perChunk пустые.
+        if (perPlayer.isEmpty() && perChunk.isEmpty()) return;
+
+        int primed = countPrimed();
+        if (primed == 0) {
+            perPlayer.clear();
+            perChunk.clear();
+        }
+    }
+
+    /** Сколько реально горящих зарядов осталось (для самовосстановления счётчиков). */
+    private int countPrimed() {
+        int total = 0;
+        for (org.bukkit.World world : plugin.getServer().getWorlds()) {
+            for (org.bukkit.entity.TNTPrimed tnt : world.getEntitiesByClass(org.bukkit.entity.TNTPrimed.class)) {
+                if (tnt.isValid()) total++;
+            }
+        }
+        return total;
+    }
+
+    public void reset() {
+        perPlayer.clear();
+        perChunk.clear();
+        activations.clear();
+        lastMessage.clear();
     }
 }

@@ -1,7 +1,6 @@
-# Динамит B — ×10 радиус урона осаде.
-#
-# Крафт по ТЗ: 5 пороха + 2 песка + 2 ДИНАМИТА A. Ингредиент A задаётся через
-# custom-type (ссылается на name динамита A).
+# Динамит B — радиус урона осаде ×10 (по ТЗ HolyWorld Lite).
+# Крафтится ТОЛЬКО из Динамита A: ингредиент A задан как custom-type,
+# поэтому обычный TNT в этот слот не подойдёт (проверка по PDC).
 name: dynamite_b
 display_name: "Динамит B"
 
@@ -10,13 +9,18 @@ radius-multiplier: 10.0
 siege-damage: 1
 
 fuse-seconds: 5
-power: 8                 # мощность блоков умеренная; ×10 — только радиус урона осаде
-mode: ball
+power: 8
 cut-entity-damage: 0
 works-in-water: false
 works-in-lava: false
 
-breakable-blocks: { }
+# auto-ignite: false
+
+breaking:
+  max-resistance: 60
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  blocks: { }
 
 raid-block:
   enabled: false

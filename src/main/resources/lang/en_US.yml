@@ -1,0 +1,66 @@
+# ============================================================
+#   QweTnts — English (en_US) — fallback language
+# ============================================================
+#  Styling matches QweProtectStones:
+#    • MiniMessage tags: <#RRGGBB>, <bold>, <gradient:#A:#B>...</gradient>
+#    • legacy codes still work: &c, &l, &#RRGGBB
+#    • placeholders are written as %name%; %prefix% is replaced automatically
+#    • any key may become a list — every '-' line is a separate chat line
+# ============================================================
+
+prefix: "<bold><gradient:#FF6B35:#FFB347>QweTnts</gradient></bold> <#A79FC0>» "
+
+# --- Common ---
+no_permission: "%prefix%<#FB7185>You don't have permission to use this dynamite."
+unknown_subcommand: "%prefix%<#FB7185>Unknown subcommand. Try <#FDE68A>/%command% help"
+unknown_owner: "Unknown"
+players_only: "%prefix%<#FB7185>This command is for players only."
+
+# --- Placing and ignition ---
+dynamite_placed: "%prefix%<#86EFAC>%name% <#86EFAC>has been placed."
+ignition_hint: "%prefix%<#A79FC0>Light it with flint and steel, fire or another explosion."
+dynamite_ignited: "%prefix%<#FDE68A>%name% <#A79FC0>is burning!"
+dynamite_removed: "%prefix%<#A79FC0>%name% <#A79FC0>picked back up."
+cannot_place_here: "%prefix%<#FB7185>You can't place a dynamite here."
+region_denied: "%prefix%<#FB7185>This is someone else's region."
+
+# --- Denials ---
+world_disabled: "%prefix%<#FB7185>Dynamites are disabled in world <#FDE68A>%world%<#FB7185>."
+spawn_protected: "%prefix%<#FB7185>Dynamites are disabled near spawn (<#FDE68A>%radius% <#FB7185>blocks)."
+raid_block_denied: "%prefix%<#FB7185>Obsidian can't be placed here for another <#FDE68A>%time% <#FB7185>(raid block)."
+
+# --- Anti-lag ---
+cooldown: "%prefix%<#FB7185>Too fast! Wait <#FDE68A>%seconds%<#FB7185>."
+player_limit: "%prefix%<#FB7185>You already have too many burning charges."
+chunk_limit: "%prefix%<#FB7185>Too many burning charges in this chunk."
+
+# --- Time ---
+time_seconds: "<#FDE68A>%seconds% <#A79FC0>s"
+time_minutes_seconds: "<#FDE68A>%minutes% <#A79FC0>m <#FDE68A>%seconds% <#A79FC0>s"
+
+# --- Commands ---
+command_reload: "%prefix%<#86EFAC>Configuration reloaded. Dynamites loaded: <#FDE68A>%count%<#86EFAC>."
+command_list_header: "%prefix%<#A79FC0>Available dynamites (<#FDE68A>%count%<#A79FC0>):"
+command_list_empty: "%prefix%<#FB7185>No dynamites loaded — check the dynamites/ folder."
+command_list_item: "  <#A79FC0>• <#F2EFFA>%name% <#A79FC0>(<#A78BFA>%id%<#A79FC0>) power <#FDE68A>%power%<#A79FC0>, siege damage <#FDE68A>%siege%<#A79FC0>, ignition: <#FDE68A>%ignite%"
+command_list_footer: "%prefix%<#A79FC0>Give: <#FDE68A>/qtnt give <id> [player] [amount]"
+usage_give: "%prefix%<#FB7185>Usage: <#FDE68A>/%command% give <id> [player] [amount]"
+dynamite_not_found: "%prefix%<#FB7185>Dynamite <#FDE68A>%id% <#FB7185>not found."
+player_not_found: "%prefix%<#FB7185>Player <#FDE68A>%player% <#FB7185>is not online."
+specify_player: "%prefix%<#FB7185>Specify a player when running from console."
+invalid_amount: "%prefix%<#FB7185>Amount must be between 1 and 320 (<#FDE68A>%amount%<#FB7185>)."
+give_success: "%prefix%<#86EFAC>Gave <#FDE68A>%amount% × %name% <#86EFAC>to <#FDE68A>%player%<#86EFAC>."
+give_success_partial: "%prefix%<#FDE68A>%amount% × %name% <#A79FC0>given to <#FDE68A>%player%<#A79FC0>, the rest was dropped on the ground."
+
+command_help:
+  - "%prefix%<#A79FC0>QweTnts commands:"
+  - "  <#FDE68A>/qtnt list<#A79FC0> — list dynamites"
+  - "  <#FDE68A>/qtnt give <id> [player] [amount]<#A79FC0> — give a dynamite"
+  - "  <#FDE68A>/qtnt reload<#A79FC0> — reload config.yml and dynamites/"
+
+# --- Values ---
+value_auto: "auto"
+value_manual: "manual"
+
+# --- Logs ---
+log_region_destroyed: "[RAID] Region %id% (type %type%) of %owner% destroyed. Last attacker: %attacker%"

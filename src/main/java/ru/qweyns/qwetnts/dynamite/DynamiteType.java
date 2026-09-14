@@ -1,18 +1,17 @@
 package ru.qweyns.qwetnts.dynamite;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.QweTnts;
+import ru.qweyns.qwetnts.util.Colors;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,11 +21,13 @@ import java.util.Map;
 import java.util.logging.Level;
 
 /**
- * Описание одного кастомного динамита: предмет, параметры взрыва, рецепт, правила.
+ * Описание одного динамита: предмет, параметры взрыва, что именно он ломает,
+ * рейд-блок, рецепт.
+ *
+ * <p>Объект неизменяемый и потокобезопасный: создаётся {@link DynamiteLoader}
+ * при старте и на {@code /qtnt reload}, дальше только читается.</p>
  */
 public final class DynamiteType {
-
-    private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private final String id;
     private final String displayName;
@@ -38,15 +39,16 @@ public final class DynamiteType {
     private final int cutEntityDamage;
     private final boolean worksInWater;
     private final boolean worksInLava;
-    private final Map<Material, BreakRule> breakableBlocks;
-    private final RaidBlockSettings raidBlock;
+    private final @Nullable Boolean autoIgniteOverride;
+    private final Breaking breaking;
     private final Map<Material, Material> transforms;
+    private final RaidBlockSettings raidBlock;
     private final ItemStack item;
     private final @Nullable Recipe recipe;
 
-    public DynamiteType(String id,
-                        String displayName,
-                        String explosionType,
+    public DynamiteType(@NotNull String id,
+                        @NotNull String displayName,
+                        @NotNull String explosionType,
                         double radiusMultiplier,
                         int siegeDamage,
                         int fuseTicks,
@@ -54,231 +56,193 @@ public final class DynamiteType {
                         int cutEntityDamage,
                         boolean worksInWater,
                         boolean worksInLava,
-                        Map<Material, BreakRule> breakableBlocks,
-                        RaidBlockSettings raidBlock,
-                        Map<Material, Material> transforms,
-                        ItemStack item,
+                        @Nullable Boolean autoIgniteOverride,
+                        @NotNull Breaking breaking,
+                        @NotNull Map<Material, Material> transforms,
+                        @NotNull RaidBlockSettings raidBlock,
+                        @NotNull ItemStack item,
                         @Nullable Recipe recipe) {
         this.id = id;
         this.displayName = displayName;
         this.explosionType = explosionType;
-        this.radiusMultiplier = radiusMultiplier;
-        this.siegeDamage = siegeDamage;
-        this.fuseTicks = fuseTicks;
-        this.power = power;
-        this.cutEntityDamage = cutEntityDamage;
+        this.radiusMultiplier = Math.max(0.01, radiusMultiplier);
+        this.siegeDamage = Math.max(0, siegeDamage);
+        this.fuseTicks = Math.max(1, fuseTicks);
+        this.power = Math.max(0f, power);
+        this.cutEntityDamage = BlastMath.clampPercent(cutEntityDamage);
         this.worksInWater = worksInWater;
         this.worksInLava = worksInLava;
-        this.breakableBlocks = Collections.unmodifiableMap(new EnumMap<>(breakableBlocks));
-        this.raidBlock = raidBlock;
+        this.autoIgniteOverride = autoIgniteOverride;
+        this.breaking = breaking;
         this.transforms = Collections.unmodifiableMap(new EnumMap<>(transforms));
+        this.raidBlock = raidBlock;
         this.item = item;
         this.recipe = recipe;
     }
 
-    public String id() {
-        return id;
-    }
-
-    public String displayName() {
-        return displayName;
-    }
-
-    public String explosionType() {
-        return explosionType;
-    }
-
-    public double radiusMultiplier() {
-        return radiusMultiplier;
-    }
-
-    public int siegeDamage() {
-        return siegeDamage;
-    }
-
-    public int fuseTicks() {
-        return fuseTicks;
-    }
-
-    public float power() {
-        return power;
-    }
-
-    public int cutEntityDamage() {
-        return cutEntityDamage;
-    }
-
-    public boolean worksInWater() {
-        return worksInWater;
-    }
-
-    public boolean worksInLava() {
-        return worksInLava;
-    }
-
-    public Map<Material, BreakRule> breakableBlocks() {
-        return breakableBlocks;
-    }
-
-    public RaidBlockSettings raidBlock() {
-        return raidBlock;
-    }
-
-    public Map<Material, Material> transforms() {
-        return transforms;
-    }
-
-    public ItemStack item() {
-        return item.clone();
-    }
+    public @NotNull String id() { return id; }
+    public @NotNull String displayName() { return displayName; }
+    public @NotNull String explosionType() { return explosionType; }
+    public double radiusMultiplier() { return radiusMultiplier; }
+    public int siegeDamage() { return siegeDamage; }
+    public int fuseTicks() { return fuseTicks; }
+    public float power() { return power; }
+    public int cutEntityDamage() { return cutEntityDamage; }
+    public boolean worksInWater() { return worksInWater; }
+    public boolean worksInLava() { return worksInLava; }
+    public @NotNull Breaking breaking() { return breaking; }
+    public @NotNull Map<Material, Material> transforms() { return transforms; }
+    public @NotNull RaidBlockSettings raidBlock() { return raidBlock; }
+    public @Nullable Recipe recipe() { return recipe; }
 
     /**
-     * Регистрирует Bukkit-рецепт динамита и запоминает ключ в реестре,
-     * чтобы корректно вычистить его при /qtnt reload без дубликатов.
-     * Кастомные ингредиенты (по PDC) регистрируются в CustomRecipeListener.
+     * Поджигается ли динамит сразу в руке.
+     *
+     * @param globalDefault значение {@code settings.dynamites.auto-ignite} из config.yml
      */
-    public @Nullable NamespacedKey registerRecipe(QweTnts plugin) {
+    public boolean isAutoIgnite(boolean globalDefault) {
+        return autoIgniteOverride != null ? autoIgniteOverride : globalDefault;
+    }
+
+    /** Копия предмета динамита (PDC-метка типа уже внутри). */
+    public @NotNull ItemStack item() {
+        ItemStack copy = item.clone();
+        if (copy.getType().isAir()) return copy;
+        return copy;
+    }
+
+    /** Показать игроку, как поджигать этот динамит (для сообщений). */
+    public boolean needsManualIgnition(boolean globalDefault) {
+        return !isAutoIgnite(globalDefault);
+    }
+
+    // ------------------------------------------------------------------
+    // Рецепт
+    // ------------------------------------------------------------------
+
+    /**
+     * Регистрирует Bukkit-рецепт и запоминает ключ, чтобы на {@code /qtnt reload}
+     * старые рецепты вычищались и не копились дубликаты.
+     *
+     * <p>Кастомные ингредиенты (PDC) матчатся {@code CustomRecipeListener}.</p>
+     */
+    public @Nullable NamespacedKey registerRecipe(@NotNull QweTnts plugin) {
         if (recipe == null) return null;
         try {
             NamespacedKey key = new NamespacedKey(plugin, "dynamite_" + id);
-            ShapedRecipe r = new ShapedRecipe(key, item);
-            r.shape(recipe.shape());
-            for (var e : recipe.ingredients().entrySet()) {
-                r.setIngredient(e.getKey(), e.getValue());
+            ShapedRecipe shaped = new ShapedRecipe(key, item());
+            shaped.shape(recipe.shape());
+
+            for (Map.Entry<Character, Material> entry : recipe.ingredients().entrySet()) {
+                shaped.setIngredient(entry.getKey(), entry.getValue());
             }
-            // Кастомные ингредиенты — в рецепте используем TNT как плейсхолдер,
-            // а валидацию PDC берёт на себя CustomRecipeListener.
-            for (var e : recipe.customIngredients().entrySet()) {
-                r.setIngredient(e.getKey(), Material.TNT);
+            // Кастомные ингредиенты: в рецепте — плейсхолдер TNT,
+            // валидацию PDC берёт на себя CustomRecipeListener.
+            for (Map.Entry<Character, String> entry : recipe.customIngredients().entrySet()) {
+                shaped.setIngredient(entry.getKey(), Material.TNT);
             }
-            boolean added = Bukkit.addRecipe(r);
-            if (added) {
+
+            if (plugin.getServer().addRecipe(shaped)) {
                 plugin.registry().addRecipeKey(key);
                 if (!recipe.customIngredients().isEmpty()) {
                     plugin.customRecipes().markRequiresCustom(key, recipe.shape(), recipe.customIngredients());
                 }
+                return key;
             }
-            return key;
+            return null;
         } catch (Exception ex) {
-            plugin.getLogger().log(Level.WARNING,
-                    "Не удалось зарегистрировать рецепт для " + id, ex);
+            plugin.getLogger().log(Level.WARNING, "Не удалось зарегистрировать рецепт для " + id, ex);
             return null;
         }
     }
 
-    // --- Вложенные типы ---
+    // ------------------------------------------------------------------
+    // Вложенные типы
+    // ------------------------------------------------------------------
 
-    public record BreakRule(int chancePercent, int dropChancePercent) {
+    /**
+     * Правила разрушения блоков.
+     *
+     * @param maxResistance    потолок взрывоустойчивости (1200 = обсидиан и
+     *                         древние обломки; выше — блок не трогаем)
+     * @param resistanceScale  множитель формулы {@code (r + 0.3) * scale}
+     * @param defaultDropChance шанс выпадения для блоков без явного правила
+     * @param blocks           явные правила по материалам (перекрывают порог)
+     */
+    public record Breaking(double maxResistance,
+                           double resistanceScale,
+                           int defaultDropChance,
+                           @NotNull Map<Material, BreakRule> blocks) {
+
+        public static final Breaking NONE =
+                new Breaking(0.0, BlastMath.VANILLA_SCALE, 100, Map.of());
+
+        public @Nullable BreakRule ruleFor(@Nullable Material material) {
+            return material == null ? null : blocks.get(material);
+        }
+    }
+
+    /** Шанс сломать и шанс, что блок выпадет предметом (в процентах). */
+    public record BreakRule(int breakChance, int dropChance) {
+
+        public static final BreakRule ALWAYS = new BreakRule(100, 100);
+
+        public boolean keepDrop(@NotNull java.util.random.RandomGenerator random) {
+            return BlastMath.roll(dropChance, random);
+        }
     }
 
     public record RaidBlockSettings(boolean enabled, long durationMs) {
+
+        public static final RaidBlockSettings DISABLED = new RaidBlockSettings(false, 0L);
     }
 
-    public record Recipe(String[] shape,
-                         Map<Character, Material> ingredients,
-                         Map<Character, String> customIngredients) {
+    public record Recipe(@NotNull String[] shape,
+                         @NotNull Map<Character, Material> ingredients,
+                         @NotNull Map<Character, String> customIngredients) {
     }
 
-    /** Собирает ItemStack динамита с PDC-меткой типа и Adventure display/lore. */
-    public static ItemStack buildItem(QweTnts plugin,
-                                      DynamiteType type,
-                                      Material material,
-                                      String displayNameRaw,
-                                      List<String> loreRaw,
-                                      boolean glow) {
+    // ------------------------------------------------------------------
+    // Сборка предмета
+    // ------------------------------------------------------------------
+
+    /** Собирает ItemStack динамита с PDC-меткой и Adventure display/lore. */
+    public static @NotNull ItemStack buildItem(@NotNull QweTnts plugin,
+                                               @NotNull DynamiteType type,
+                                               @NotNull Material material,
+                                               @Nullable String displayNameRaw,
+                                               @Nullable List<String> loreRaw,
+                                               boolean glow) {
         ItemStack stack = new ItemStack(material);
         ItemMeta meta = stack.getItemMeta();
-        if (meta == null) {
-            return stack;
+        if (meta == null) return stack;
+
+        Component name = Colors.formatItem(displayNameRaw);
+        if (!name.equals(Component.empty())) {
+            meta.displayName(name);
         }
 
-        meta.displayName(mm(displayNameRaw));
         if (loreRaw != null && !loreRaw.isEmpty()) {
             List<Component> lore = new ArrayList<>(loreRaw.size());
             for (String line : loreRaw) {
-                lore.add(mm(line));
+                if (line == null) continue;
+                lore.add(Colors.formatItem(line));
             }
             meta.lore(lore);
         }
+
         if (glow) {
-            meta.addEnchant(Enchantment.LUCK, 1, true);
-            meta.addItemFlags(
-                    ItemFlag.HIDE_ENCHANTS,
-                    ItemFlag.HIDE_ATTRIBUTES,
-                    ItemFlag.HIDE_ITEM_SPECIFICS);
+            // Свечение без фейкового зачарования (Paper 1.20.5+).
+            meta.setEnchantmentGlintOverride(true);
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         }
+
         meta.getPersistentDataContainer().set(
                 plugin.keys().dynamiteKind,
                 PersistentDataType.STRING,
                 type.id());
+
         stack.setItemMeta(meta);
         return stack;
-    }
-
-    private static Component mm(String s) {
-        if (s == null || s.isBlank()) {
-            return Component.empty();
-        }
-        return MM.deserialize(legacyToMini(s));
-    }
-
-    /**
-     * Переводит legacy-цвета ({@code &c/&l/§c}) в MiniMessage-теги для
-     * совместимости со старыми конфигами. Перед каждым цветом/сбросом
-     * вставляем {@code <reset>}, чтобы форматирование не протекало между
-     * строками лора.
-     */
-    static String legacyToMini(String in) {
-        StringBuilder out = new StringBuilder(in.length() + 16);
-        for (int i = 0; i < in.length(); i++) {
-            char c = in.charAt(i);
-            if ((c == '&' || c == '§') && i + 1 < in.length()) {
-                char code = Character.toLowerCase(in.charAt(i + 1));
-                String tag = legacyCodeToTag(code);
-                if (tag != null) {
-                    // Цвет или reset сбрасывают предыдущие стили целиком.
-                    if (isColorOrReset(code)) out.append("<reset>");
-                    out.append('<').append(tag).append('>');
-                    i++;
-                    continue;
-                }
-            }
-            out.append(c);
-        }
-        return out.toString();
-    }
-
-    private static boolean isColorOrReset(char code) {
-        return (code >= '0' && code <= '9')
-                || (code >= 'a' && code <= 'f')
-                || code == 'r';
-    }
-
-    private static String legacyCodeToTag(char code) {
-        return switch (code) {
-            case '0' -> "black";
-            case '1' -> "dark_blue";
-            case '2' -> "dark_green";
-            case '3' -> "dark_aqua";
-            case '4' -> "red";
-            case '5' -> "dark_purple";
-            case '6' -> "gold";
-            case '7' -> "gray";
-            case '8' -> "dark_gray";
-            case '9' -> "blue";
-            case 'a' -> "green";
-            case 'b' -> "aqua";
-            case 'c' -> "red";
-            case 'd' -> "light_purple";
-            case 'e' -> "yellow";
-            case 'f' -> "white";
-            case 'l' -> "b";
-            case 'o' -> "i";
-            case 'n' -> "u";
-            case 'm' -> "strikethrough";
-            case 'k' -> "obfuscated";
-            case 'r' -> "reset";
-            default -> null;
-        };
     }
 }

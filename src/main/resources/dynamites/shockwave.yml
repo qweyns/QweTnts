@@ -1,6 +1,10 @@
-# Разрывная волна — ломает обсидиан, превращает древние обломки в обсидиан,
-# работает в воде/лаве (уничтожая их), сносит 2 прочности привата за раз,
-# рейд-блок 5 минут.
+# Разрывная волна — ломает обсидиан, работает в воде и лаве (уничтожая их),
+# превращает древние обломки в обычный обсидиан, сносит 2 прочности привата
+# за раз и оставляет рейд-блок на 5 минут.
+#
+# Важно: древние обломки НЕ ломаются, а деградируют — первый взрыв делает из
+# них обсидиан, и только следующий его выбивает. Ядра приватов (isCore)
+# трансформация не затрагивает никогда.
 name: shockwave
 display_name: "Разрывная волна"
 
@@ -10,27 +14,35 @@ siege-damage: 2
 
 fuse-seconds: 4
 power: 4
-mode: vanilla
 cut-entity-damage: 0
 works-in-water: true
 works-in-lava: true
 
-breakable-blocks:
-  OBSIDIAN:
-    chance: 100
-    drop-chance: 0
-  CRYING_OBSIDIAN:
-    chance: 100
-    drop-chance: 0
-  WATER:
-    chance: 100
-    drop-chance: 0
-  LAVA:
-    chance: 100
-    drop-chance: 0
+# auto-ignite: false
 
-# Древние обломки НЕ ломаются, а деградируют в обсидиан (снесётся следующим взрывом).
-# Ядра уникальных приватов (isCore) трансформация не затрагивает.
+# --- Что ломает взрыв --------------------------------------------------
+breaking:
+  max-resistance: 1200
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  blocks:
+    OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    CRYING_OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    ANCIENT_DEBRIS:
+      break-chance: 100
+      drop-chance: 100      # деградация важнее дропа: см. transformable-blocks
+    WATER:
+      break-chance: 100
+      drop-chance: 0
+    LAVA:
+      break-chance: 100
+      drop-chance: 0
+
+# Деградация: материал -> во что превращается.
 transformable-blocks:
   ANCIENT_DEBRIS:
     to: OBSIDIAN
