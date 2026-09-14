@@ -5,6 +5,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.jetbrains.annotations.NotNull;
 import org.qweyns.qweprotectstones.regions.event.RegionDeleteEvent;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 
 import java.util.logging.Level;
@@ -32,10 +33,10 @@ public final class RaidLoggingListener implements Listener {
 
         String attacker = region.getLastAttackerName();
         if (attacker == null || attacker.isBlank()) {
-            attacker = plugin.lang().raw("unknown_owner");
+            attacker = plugin.lang().raw(LangKeys.UNKNOWN_OWNER);
         }
 
-        plugin.getLogger().log(Level.INFO, plugin.lang().raw("log_region_destroyed",
+        plugin.getLogger().log(Level.INFO, plugin.lang().raw(LangKeys.LOG_REGION_DESTROYED,
                 "%id%", String.valueOf(region.getShortId()),
                 "%type%", String.valueOf(region.getTypeId()),
                 "%owner%", String.valueOf(region.getOwnerName()),

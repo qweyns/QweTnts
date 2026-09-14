@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
 
@@ -47,7 +48,7 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
             case "list" -> list(sender);
             case "give" -> give(sender, args);
             case "help" -> sendHelp(sender);
-            default -> plugin.lang().send(sender, "unknown_subcommand", "%command%", label);
+            default -> plugin.lang().send(sender, LangKeys.UNKNOWN_SUBCOMMAND, "%command%", label);
         }
         return true;
     }
@@ -58,55 +59,55 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
 
     private void reload(@NotNull CommandSender sender) {
         if (!sender.hasPermission(PERM_ADMIN)) {
-            plugin.lang().send(sender, "no_permission");
+            plugin.lang().send(sender, LangKeys.NO_PERMISSION);
             return;
         }
 
         plugin.reloadDynamites();
-        plugin.lang().send(sender, "command_reload",
+        plugin.lang().send(sender, LangKeys.COMMAND_RELOAD,
                 "%count%", String.valueOf(plugin.registry().all().size()));
     }
 
     private void list(@NotNull CommandSender sender) {
         if (!sender.hasPermission(PERM_ADMIN)) {
-            plugin.lang().send(sender, "no_permission");
+            plugin.lang().send(sender, LangKeys.NO_PERMISSION);
             return;
         }
 
         var types = plugin.registry().all();
         if (types.isEmpty()) {
-            plugin.lang().send(sender, "command_list_empty");
+            plugin.lang().send(sender, LangKeys.COMMAND_LIST_EMPTY);
             return;
         }
 
-        plugin.lang().send(sender, "command_list_header",
+        plugin.lang().send(sender, LangKeys.COMMAND_LIST_HEADER,
                 "%count%", String.valueOf(types.size()));
 
         for (DynamiteType type : types) {
-            plugin.lang().send(sender, "command_list_item",
+            plugin.lang().send(sender, LangKeys.COMMAND_LIST_ITEM,
                     "%id%", type.id(),
                     "%name%", type.displayName(),
                     "%power%", String.valueOf((int) type.explosion().power()),
                     "%explosion%", type.explosion().type(),
                     "%siege%", String.valueOf(type.explosion().siegeDamage()),
                     "%ignite%", plugin.lang().raw(type.isAutoIgnite(plugin.settings().dynamites().autoIgnite())
-                            ? "value_auto" : "value_manual"));
+                            ? LangKeys.VALUE_AUTO : LangKeys.VALUE_MANUAL));
         }
     }
 
     private void give(@NotNull CommandSender sender, @NotNull String[] args) {
         if (!sender.hasPermission(PERM_ADMIN)) {
-            plugin.lang().send(sender, "no_permission");
+            plugin.lang().send(sender, LangKeys.NO_PERMISSION);
             return;
         }
         if (args.length < 2) {
-            plugin.lang().send(sender, "usage_give", "%command%", "qtnt");
+            plugin.lang().send(sender, LangKeys.USAGE_GIVE, "%command%", "qtnt");
             return;
         }
 
         DynamiteType type = plugin.registry().byId(args[1].toLowerCase(Locale.ROOT));
         if (type == null) {
-            plugin.lang().send(sender, "dynamite_not_found", "%id%", args[1]);
+            plugin.lang().send(sender, LangKeys.DYNAMITE_NOT_FOUND, "%id%", args[1]);
             return;
         }
 
@@ -114,13 +115,13 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
         if (args.length >= 3) {
             target = Bukkit.getPlayerExact(args[2]);
             if (target == null || !target.isOnline()) {
-                plugin.lang().send(sender, "player_not_found", "%player%", args[2]);
+                plugin.lang().send(sender, LangKeys.PLAYER_NOT_FOUND, "%player%", args[2]);
                 return;
             }
         } else if (sender instanceof Player self) {
             target = self;
         } else {
-            plugin.lang().send(sender, "specify_player");
+            plugin.lang().send(sender, LangKeys.SPECIFY_PLAYER);
             return;
         }
 
@@ -129,18 +130,18 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
             try {
                 amount = Integer.parseInt(args[3]);
             } catch (NumberFormatException ex) {
-                plugin.lang().send(sender, "invalid_amount", "%amount%", args[3]);
+                plugin.lang().send(sender, LangKeys.INVALID_AMOUNT, "%amount%", args[3]);
                 return;
             }
         }
         if (amount <= 0 || amount > 64 * 5) {
-            plugin.lang().send(sender, "invalid_amount", "%amount%", String.valueOf(amount));
+            plugin.lang().send(sender, LangKeys.INVALID_AMOUNT, "%amount%", String.valueOf(amount));
             return;
         }
 
         ItemStack stack = type.item();
         if (stack.getType().isAir()) {
-            plugin.lang().send(sender, "dynamite_not_found", "%id%", type.id());
+            plugin.lang().send(sender, LangKeys.DYNAMITE_NOT_FOUND, "%id%", type.id());
             return;
         }
 
@@ -158,21 +159,21 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
         }
 
         if (notFit > 0) {
-            plugin.lang().send(sender, "give_success_partial",
+            plugin.lang().send(sender, LangKeys.GIVE_SUCCESS_PARTIAL,
                     "%amount%", String.valueOf(amount - notFit),
                     "%name%", type.displayName(),
                     "%player%", target.getName());
             return;
         }
 
-        plugin.lang().send(sender, "give_success",
+        plugin.lang().send(sender, LangKeys.GIVE_SUCCESS,
                 "%amount%", String.valueOf(amount),
                 "%name%", type.displayName(),
                 "%player%", target.getName());
     }
 
     private void sendHelp(@NotNull CommandSender sender) {
-        plugin.lang().sendList(sender, "command_help", "%command%", "qtnt");
+        plugin.lang().sendList(sender, LangKeys.COMMAND_HELP, "%command%", "qtnt");
     }
 
     // ------------------------------------------------------------------

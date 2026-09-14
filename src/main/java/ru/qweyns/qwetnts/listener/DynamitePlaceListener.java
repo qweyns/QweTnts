@@ -14,6 +14,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.antilag.AntiLag;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
@@ -47,7 +48,7 @@ public final class DynamitePlaceListener implements Listener {
         if (block.getType() != Material.TNT) return;
         if (!type.placement().placeable()) {
             event.setCancelled(true);
-            plugin.lang().send(event.getPlayer(), "cannot_place_here");
+            plugin.lang().send(event.getPlayer(), LangKeys.CANNOT_PLACE_HERE);
             return;
         }
 
@@ -55,7 +56,7 @@ public final class DynamitePlaceListener implements Listener {
         Location location = block.getLocation();
 
         if (!hasPermission(player, type)) {
-            plugin.lang().send(player, "no_permission");
+            plugin.lang().send(player, LangKeys.NO_PERMISSION);
             event.setCancelled(true);
             return;
         }
@@ -64,19 +65,19 @@ public final class DynamitePlaceListener implements Listener {
         boolean bypassWorld = player.hasPermission("qwetnts.bypass.world");
 
         if (!bypassWorld && !type.isAllowedIn(world, plugin.settings().worldFilter())) {
-            plugin.lang().send(player, "world_disabled", "%world%", world.getName());
+            plugin.lang().send(player, LangKeys.WORLD_DISABLED, "%world%", world.getName());
             event.setCancelled(true);
             return;
         }
         if (!bypassWorld && inSpawnRadius(location, plugin.settings().spawnRadius())) {
-            plugin.lang().send(player, "spawn_protected",
+            plugin.lang().send(player, LangKeys.SPAWN_PROTECTED,
                     "%radius%", String.valueOf(plugin.settings().spawnRadius()));
             event.setCancelled(true);
             return;
         }
         if (!player.hasPermission("qwetnts.bypass.region")
                 && !plugin.qps().canPlace(player, location)) {
-            plugin.lang().send(player, "region_denied");
+            plugin.lang().send(player, LangKeys.REGION_DENIED);
             event.setCancelled(true);
             return;
         }
@@ -109,9 +110,9 @@ public final class DynamitePlaceListener implements Listener {
 
         if (type.isAutoIgnite(plugin.settings().dynamites().autoIgnite())) return;
 
-        plugin.lang().sendOr(player, type.messages().placed(), "dynamite_placed",
+        plugin.lang().sendOr(player, type.messages().placed(), LangKeys.DYNAMITE_PLACED,
                 "%name%", type.displayName());
-        plugin.lang().send(player, "ignition_hint", "%name%", type.displayName());
+        plugin.lang().send(player, LangKeys.IGNITION_HINT, "%name%", type.displayName());
     }
 
     /** Сломал установленный динамит — возвращаем предмет с PDC-меткой. */
@@ -137,7 +138,7 @@ public final class DynamitePlaceListener implements Listener {
         if (drop.getType().isAir()) return;
 
         block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), drop);
-        plugin.lang().send(player, "dynamite_removed", "%name%", type.displayName());
+        plugin.lang().send(player, LangKeys.DYNAMITE_REMOVED, "%name%", type.displayName());
     }
 
     // ------------------------------------------------------------------
@@ -151,11 +152,11 @@ public final class DynamitePlaceListener implements Listener {
 
     private void notifyDeny(@NotNull Player player, @NotNull AntiLag.Deny deny) {
         switch (deny) {
-            case COOLDOWN -> plugin.lang().send(player, "cooldown",
+            case COOLDOWN -> plugin.lang().send(player, LangKeys.COOLDOWN,
                     "%seconds%", plugin.lang().duration(
                             plugin.antiLag().cooldownRemaining(player.getUniqueId())));
-            case PLAYER_LIMIT -> plugin.lang().send(player, "player_limit");
-            case CHUNK_LIMIT -> plugin.lang().send(player, "chunk_limit");
+            case PLAYER_LIMIT -> plugin.lang().send(player, LangKeys.PLAYER_LIMIT);
+            case CHUNK_LIMIT -> plugin.lang().send(player, LangKeys.CHUNK_LIMIT);
             case NONE -> { /* разрешено */ }
         }
     }

@@ -97,7 +97,7 @@ public final class Lang {
      * Отправить сообщение.
      *
      * @param replacements пары «плейсхолдер → значение»:
-     *                     {@code send(player, "cooldown", "%seconds%", "3")}
+     *                     {@code send(player, LangKeys.COOLDOWN, "%seconds%", "3")}
      */
     public void send(@Nullable CommandSender to, @NotNull String path, String... replacements) {
         if (to == null) return;
@@ -180,11 +180,11 @@ public final class Lang {
         long minutes = totalSeconds / 60L;
         long seconds = totalSeconds % 60L;
         if (minutes > 0) {
-            return resolve("time_minutes_seconds",
+            return resolve(LangKeys.TIME_MINUTES_SECONDS,
                     "%minutes%", Long.toString(minutes),
                     "%seconds%", Long.toString(seconds));
         }
-        return resolve("time_seconds", "%seconds%", Long.toString(seconds));
+        return resolve(LangKeys.TIME_SECONDS, "%seconds%", Long.toString(seconds));
     }
 
     /** Строка с {@code §}-кодами — для API, принимающих legacy-текст. */

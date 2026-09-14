@@ -1,0 +1,39 @@
+name: Compile report (temp)
+
+on:
+  push:
+    branches: [ arena/** ]
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      - name: Checkout QweProtectionStones
+        uses: actions/checkout@v4
+        with:
+          repository: qweyns/QweProtectionStones
+          ref: main
+          path: QweProtectionStones
+      - name: Install QweProtectionStones to local repo
+        working-directory: QweProtectionStones
+        run: mvn -B install -DskipTests
+      - name: Build QweTnts (report)
+        continue-on-error: true
+        run: mvn -B clean package 2>&1 | tee build.log
+      - name: Annotate errors
+        run: |
+          awk '/^\[ERROR\]/{c=5} c&&c--' build.log | head -250 | while IFS= read -r line; do
+            echo "::error::$line"
+          done

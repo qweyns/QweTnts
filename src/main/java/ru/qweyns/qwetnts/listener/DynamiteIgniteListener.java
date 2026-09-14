@@ -16,6 +16,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.Chain;
@@ -70,7 +71,7 @@ public final class DynamiteIgniteListener implements Listener {
         Player player = event.getPlayer();
         if (player != null && !hasPermission(player, type)) {
             event.setCancelled(true);
-            plugin.lang().send(player, "no_permission");
+            plugin.lang().send(player, LangKeys.NO_PERMISSION);
             return;
         }
 
@@ -118,7 +119,7 @@ public final class DynamiteIgniteListener implements Listener {
         }
         if (!hasPermission(player, type)) {
             event.setCancelled(true);
-            plugin.lang().send(player, "no_permission");
+            plugin.lang().send(player, LangKeys.NO_PERMISSION);
             return;
         }
 
@@ -221,7 +222,7 @@ public final class DynamiteIgniteListener implements Listener {
         if (!plugin.antiLag().tryRegister(uuid, chunk,
                 type.maxPerPlayer(plugin.settings().antiLag().maxPrimedPerPlayer()),
                 type.maxPerChunk(plugin.settings().antiLag().maxPrimedPerChunk()))) {
-            if (player != null) plugin.lang().send(player, "player_limit");
+            if (player != null) plugin.lang().send(player, LangKeys.PLAYER_LIMIT);
             return;
         }
 
@@ -232,7 +233,7 @@ public final class DynamiteIgniteListener implements Listener {
         }
 
         if (player != null) {
-            plugin.lang().sendOr(player, type.messages().ignited(), "dynamite_ignited",
+            plugin.lang().sendOr(player, type.messages().ignited(), LangKeys.DYNAMITE_IGNITED,
                     "%name%", type.displayName());
         }
     }

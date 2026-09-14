@@ -7,6 +7,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.jetbrains.annotations.NotNull;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.util.Materials;
 
@@ -37,7 +38,7 @@ public final class RaidBlockListener implements Listener {
         if (player.hasPermission("qwetnts.bypass.raidblock")) return;
 
         event.setCancelled(true);
-        plugin.lang().send(player, "raid_block_denied",
+        plugin.lang().send(player, LangKeys.RAID_BLOCK_DENIED,
                 "%time%", plugin.lang().duration(until - System.currentTimeMillis()));
     }
 }
