@@ -38,7 +38,7 @@ jobs:
 
       - name: Compile QweTnts (report)
         continue-on-error: true
-        run: mvn -B clean test-compile -DskipTests 2>&1 | tee build.log
+        run: mvn -B clean package 2>&1 | tee build.log
 
       - name: Annotate compiler errors
         run: |
