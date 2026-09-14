@@ -3,7 +3,8 @@ name: Compile report (temp)
 # Временный воркфлоу: печатает полный вывод компилятора и выкладывает его
 # артефактом. Нужен, чтобы видеть текст ошибок без доступа к логам Actions.
 on:
-  workflow_dispatch:
+  push:
+    branches: [ arena/** ]
 
 jobs:
   report:
