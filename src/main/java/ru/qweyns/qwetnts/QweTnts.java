@@ -178,7 +178,8 @@ public final class QweTnts extends JavaPlugin {
                 settings.raidBlocks().autosaveIntervalTicks());
 
         // Чистка карт анти-лага: делаем реже, чем взрываются динамиты.
-        antiLagCleanupTask = Schedulers.runAsyncTimer(this, task -> {
+        // Только главный поток: внутри есть пересчёт живых зарядов по мирам.
+        antiLagCleanupTask = Schedulers.runGlobalTimer(this, task -> {
             antiLag.cleanup();
             alerts.cleanup();
         }, 1200L, 1200L);

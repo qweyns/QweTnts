@@ -93,8 +93,8 @@ limits:
   max-primed-per-chunk: -1
   worlds:
     mode: INHERIT         # INHERIT | ALLOWED | BLOCKED
-    allowed: []
-    blocked: []
+    allowed-worlds: []
+    blocked-worlds: []
 
 # --- Эффекты ------------------------------------------------
 effects:

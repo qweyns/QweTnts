@@ -60,10 +60,16 @@ public final class DynamiteIgniteListener implements Listener {
             return;
         }
 
-        if (!type.canBeIgnitedBy(map(event.getCause()))) return;
+        // Способ поджога не разрешён — гасим vanilla-поджог, иначе заряд
+        // превратился бы в обычный TNT с дефолтным фитилём и мощностью.
+        if (!type.canBeIgnitedBy(map(event.getCause()))) {
+            event.setCancelled(true);
+            return;
+        }
 
         Player player = event.getPlayer();
         if (player != null && !hasPermission(player, type)) {
+            event.setCancelled(true);
             plugin.lang().send(player, "no_permission");
             return;
         }
@@ -106,8 +112,12 @@ public final class DynamiteIgniteListener implements Listener {
             return;
         }
 
-        if (!type.canBeIgnitedBy(cause)) return;
+        if (!type.canBeIgnitedBy(cause)) {
+            event.setCancelled(true);
+            return;
+        }
         if (!hasPermission(player, type)) {
+            event.setCancelled(true);
             plugin.lang().send(player, "no_permission");
             return;
         }

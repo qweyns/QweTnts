@@ -66,8 +66,8 @@ limits:
   max-primed-per-chunk: 6
   worlds:
     mode: INHERIT
-    allowed: []
-    blocked: []
+    allowed-worlds: []
+    blocked-worlds: []
 
 effects:
   on-ignite:

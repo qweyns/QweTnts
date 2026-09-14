@@ -184,9 +184,19 @@ public final class Settings {
                 }
             }
 
-            Set<String> allowed = lower(s.getStringList("allowed-worlds"));
-            Set<String> blocked = lower(s.getStringList("blocked-worlds"));
+            // В config.yml ключи полные, в файлах динамитов допустимы
+            // короткие синонимы allowed/blocked.
+            Set<String> allowed = lower(list(s, "allowed-worlds", "allowed"));
+            Set<String> blocked = lower(list(s, "blocked-worlds", "blocked"));
             return new WorldFilter(mode, allowed, blocked);
+        }
+
+        private static @NotNull List<String> list(@NotNull ConfigurationSection section,
+                                                  @NotNull String primary,
+                                                  @NotNull String alias) {
+            if (section.isList(primary)) return section.getStringList(primary);
+            if (section.isList(alias)) return section.getStringList(alias);
+            return List.of();
         }
 
         private static Set<String> lower(java.util.List<String> source) {
