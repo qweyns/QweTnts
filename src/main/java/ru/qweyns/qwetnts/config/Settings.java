@@ -9,6 +9,7 @@ import ru.qweyns.qwetnts.QweTnts;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -199,7 +200,7 @@ public final class Settings {
             return List.of();
         }
 
-        private static Set<String> lower(java.util.List<String> source) {
+        private static Set<String> lower(List<String> source) {
             Set<String> out = new HashSet<>();
             if (source == null) return out;
             for (String value : source) {
