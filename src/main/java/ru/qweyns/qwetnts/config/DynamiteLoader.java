@@ -89,7 +89,7 @@ public final class DynamiteLoader {
             autoIgnite = yaml.getBoolean("auto-ignite");
         }
 
-        Breaking breaking = loadBreaking(id, yaml.getConfigurationSection("breaking"));
+        Breaking breaking = loadBreaking(id, yaml);
         Map<Material, Material> transforms = loadTransforms(id, yaml.getConfigurationSection("transformable-blocks"));
 
         boolean raidEnabled = yaml.getBoolean("raid-block.enabled", false);
@@ -138,24 +138,55 @@ public final class DynamiteLoader {
     // Правила разрушения
     // ------------------------------------------------------------------
 
-    private @NotNull Breaking loadBreaking(@NotNull String id, @Nullable ConfigurationSection section) {
-        if (section == null) return Breaking.NONE;
+    /** Потолок сопротивления по умолчанию: граница семейства обсидиана. */
+    private static final double DEFAULT_MAX_RESISTANCE = 1200.0;
 
-        double maxResistance = Math.max(0.0, section.getDouble("max-resistance", 0.0));
-        double scale = section.getDouble("resistance-scale", BlastMath.VANILLA_SCALE);
+    /**
+     * Правила разрушения: новая секция {@code breaking}, либо старая
+     * {@code breakable-blocks} (совместимость с конфигами версии 1.0).
+     *
+     * <p>Потолок по умолчанию — 1200 (граница семейства обсидиана). Он почти
+     * никогда не срабатывает сам по себе: реальное решение принимает сравнение
+     * эффективного сопротивления с мощностью. Потолок нужен, чтобы огромный
+     * {@code power} не тронул reinforced deepslate и ему подобное.</p>
+     */
+    private @NotNull Breaking loadBreaking(@NotNull String id, @NotNull YamlConfiguration yaml) {
+        ConfigurationSection breaking = yaml.getConfigurationSection("breaking");
+        ConfigurationSection blocks = breaking != null
+                ? breaking.getConfigurationSection("blocks")
+                : null;
+
+        ConfigurationSection legacy = null;
+        if (breaking == null) {
+            legacy = yaml.getConfigurationSection("breakable-blocks");
+            if (legacy != null) {
+                blocks = legacy;
+                plugin.getLogger().warning("[" + id + "] ключ breakable-blocks устарел: "
+                        + "перенесите правила в breaking.blocks (старый формат пока читается).");
+            }
+        }
+
+        if (breaking == null && legacy == null) return Breaking.NONE;
+
+        ConfigurationSection params = breaking != null ? breaking : legacy;
+
+        double maxResistance = Math.max(0.0,
+                params.getDouble("max-resistance", DEFAULT_MAX_RESISTANCE));
+        double scale = params.getDouble("resistance-scale", BlastMath.VANILLA_SCALE);
         if (scale <= 0.0) scale = BlastMath.VANILLA_SCALE;
-        int defaultDrop = BlastMath.clampPercent(section.getInt("default-drop-chance", 100));
+        int defaultDrop = BlastMath.clampPercent(params.getInt("default-drop-chance", 100));
 
         Map<Material, BreakRule> rules = new EnumMap<>(Material.class);
-        ConfigurationSection blocks = section.getConfigurationSection("blocks");
         if (blocks != null) {
             for (String key : blocks.getKeys(false)) {
                 Material material = Materials.parse(key);
                 if (material == null) {
-                    plugin.getLogger().warning("[" + id + "] неизвестный материал в breaking.blocks: " + key);
+                    plugin.getLogger().warning("[" + id + "] неизвестный материал в правилах: " + key);
                     continue;
                 }
-                int breakChance = percent(blocks, key, "break-chance", 100);
+                // Новый формат: break-chance/drop-chance, старый: chance/drop-chance.
+                int breakChance = percent(blocks, key, "break-chance",
+                        percent(blocks, key, "chance", 100));
                 int dropChance = percent(blocks, key, "drop-chance", 100);
                 rules.put(material, new BreakRule(breakChance, dropChance));
             }
