@@ -1,7 +1,7 @@
 name: Compile report (temp)
 
-# Временный воркфлоу: печатает полный вывод компилятора и выкладывает его
-# артефактом. Нужен, чтобы видеть текст ошибок без доступа к логам Actions.
+# Временный воркфлоу: печатает ошибки компилятора в аннотации проверки,
+# чтобы их можно было прочитать через API (логи Actions недоступны).
 on:
   push:
     branches: [ arena/** ]
@@ -37,19 +37,13 @@ jobs:
         run: mvn -B install -DskipTests
 
       - name: Compile QweTnts (report)
-        id: compile
         continue-on-error: true
         run: mvn -B clean test-compile -DskipTests 2>&1 | tee build.log
 
-      - name: Summary
+      - name: Annotate compiler errors
         run: |
-          echo "### Ошибки компиляции" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E "ERROR|error:|warning:" build.log | head -120 >> "$GITHUB_STEP_SUMMARY" || true
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
+          awk '/^\[ERROR\]/{c=5} c&&c--' build.log | head -200 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
+          echo "--- итог ---"
+          grep -cE "^\[ERROR\]" build.log || true
