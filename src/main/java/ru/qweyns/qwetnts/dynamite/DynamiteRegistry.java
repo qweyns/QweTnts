@@ -50,7 +50,7 @@ public final class DynamiteRegistry {
         if (explosionType == null) return null;
         String key = explosionType.toLowerCase(Locale.ROOT);
         for (DynamiteType t : byId.values()) {
-            if (t.explosionType().toLowerCase(Locale.ROOT).equals(key)) {
+            if (t.explosion().type().toLowerCase(Locale.ROOT).equals(key)) {
                 return t;
             }
         }
