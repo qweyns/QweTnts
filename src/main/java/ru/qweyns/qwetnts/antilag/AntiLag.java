@@ -60,20 +60,33 @@ public final class AntiLag {
      */
     public @NotNull Deny tryActivate(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
         Settings.AntiLag cfg = config.get();
+        return tryActivate(playerUuid, chunk,
+                cfg.activationCooldownMillis(), cfg.maxPrimedPerPlayer(), cfg.maxPrimedPerChunk());
+    }
+
+    /**
+     * То же, но с лимитами конкретного динамита: они могут перекрывать
+     * глобальные (поля {@code limits.*} в файле динамита).
+     */
+    public @NotNull Deny tryActivate(@Nullable UUID playerUuid,
+                                     @Nullable Chunk chunk,
+                                     long cooldownMillis,
+                                     int maxPerPlayer,
+                                     int maxPerChunk) {
         long now = System.currentTimeMillis();
 
-        if (playerUuid != null && cfg.activationCooldownMillis() > 0) {
+        if (playerUuid != null && cooldownMillis > 0) {
             Long last = activations.get(playerUuid);
-            if (last != null && now - last < cfg.activationCooldownMillis()) {
+            if (last != null && now - last < cooldownMillis) {
                 return Deny.COOLDOWN;
             }
         }
-        if (playerUuid != null && cfg.maxPrimedPerPlayer() > 0
-                && perPlayer.getOrDefault(playerUuid, 0) >= cfg.maxPrimedPerPlayer()) {
+        if (playerUuid != null && maxPerPlayer > 0
+                && perPlayer.getOrDefault(playerUuid, 0) >= maxPerPlayer) {
             return Deny.PLAYER_LIMIT;
         }
-        if (chunk != null && cfg.maxPrimedPerChunk() > 0
-                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= cfg.maxPrimedPerChunk()) {
+        if (chunk != null && maxPerChunk > 0
+                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= maxPerChunk) {
             return Deny.CHUNK_LIMIT;
         }
 
@@ -91,13 +104,20 @@ public final class AntiLag {
      */
     public boolean tryRegister(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
         Settings.AntiLag cfg = config.get();
+        return tryRegister(playerUuid, chunk, cfg.maxPrimedPerPlayer(), cfg.maxPrimedPerChunk());
+    }
 
-        if (playerUuid != null && cfg.maxPrimedPerPlayer() > 0
-                && perPlayer.getOrDefault(playerUuid, 0) >= cfg.maxPrimedPerPlayer()) {
+    /** То же с лимитами конкретного динамита. */
+    public boolean tryRegister(@Nullable UUID playerUuid,
+                               @Nullable Chunk chunk,
+                               int maxPerPlayer,
+                               int maxPerChunk) {
+        if (playerUuid != null && maxPerPlayer > 0
+                && perPlayer.getOrDefault(playerUuid, 0) >= maxPerPlayer) {
             return false;
         }
-        if (chunk != null && cfg.maxPrimedPerChunk() > 0
-                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= cfg.maxPrimedPerChunk()) {
+        if (chunk != null && maxPerChunk > 0
+                && perChunk.getOrDefault(ChunkKey.of(chunk), 0) >= maxPerChunk) {
             return false;
         }
 

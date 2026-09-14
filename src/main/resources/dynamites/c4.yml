@@ -1,33 +1,61 @@
-# C4 — ломает обсидиан и плачущий обсидиан, древние обломки выбивает,
-# вредит незерит-приватам и оставляет рейд-блок на 5 минут.
-#
-# Обсидиан пробивается НЕ силой взрыва (vanilla его вообще не трогает),
-# а явным правилом в breaking.blocks — это единственный корректный способ.
+# ============================================================
+#   C4 — ломает обсидиан и древние обломки, рейд-блок 5 минут
+# ============================================================
+#  Полный список настроек с пояснениями — в dynamite_a.yml.
+#  Здесь только то, что отличается.
+# ============================================================
+
 name: c4
 display_name: "C4"
+enabled: true
 
-explosion-type: C4
-radius-multiplier: 1.0
-siege-damage: 1
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
 
-fuse-seconds: 4
-power: 4
-cut-entity-damage: 0
-works-in-water: false
-works-in-lava: false
+ignition:
+  # Заряд НЕ поджигает сам себя: ставится блоком, поджигается огнивом,
+  # огнём, лавой или другим взрывом. Поставьте true — вернётся старый режим.
+  auto: false
+  causes: [FLINT_AND_STEEL, FIRE_CHARGE, FIRE, LAVA, EXPLOSION, LIGHTNING]
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
 
-# auto-ignite: false
+explosion:
+  type: C4
+  radius-multiplier: 1.0
+  power: 4
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: false
+  works-in-lava: false
+  siege-damage: 1
+  max-blocks: 0
 
-# --- Что ломает взрыв --------------------------------------------------
+damage:
+  cut-entity: 0
+  cut-player: 0
+  multiplier: 1.0
+
+# Обсидиан пробивается НЕ силой взрыва (vanilla его вообще не трогает),
+# а явным правилом ниже — это единственный корректный способ.
 breaking:
-  # 1200 — потолок семейства обсидиана и древних обломков.
-  max-resistance: 1200
+  vanilla-blocklist: true
+  max-resistance: 1200    # 1200 = потолок семейства обсидиана
   resistance-scale: 0.3
   default-drop-chance: 100
+  scan-radius: 4          # радиус досмотра прочных блоков вокруг эпицентра
   blocks:
     OBSIDIAN:
       break-chance: 100
-      drop-chance: 0        # обсидиан не выпадает — иначе рейд бесконечен
+      drop-chance: 0      # обсидиан не выпадает, иначе рейд бесконечен
     CRYING_OBSIDIAN:
       break-chance: 100
       drop-chance: 0
@@ -35,9 +63,40 @@ breaking:
       break-chance: 100
       drop-chance: 0
 
+transforms: { }
+
 raid-block:
   enabled: true
   duration-seconds: 300
+  materials: [OBSIDIAN, CRYING_OBSIDIAN, ANCIENT_DEBRIS, REINFORCED_DEEPSLATE]
+  radius: 0
+
+limits:
+  cooldown-millis: 500    # C4 ставим чуть реже остальных (свой кулдаун)
+  max-primed-per-player: 8
+  max-primed-per-chunk: 16
+  worlds:
+    mode: INHERIT
+    allowed: []
+    blocked: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 0.9
+    particle: SMOKE
+    particle-count: 4
+    spread: 0.2
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 1.2
+    pitch: 0.8
+    particle: EXPLOSION_EMITTER
+    particle-count: 1
+    spread: 0.0
 
 item:
   material: TNT
@@ -48,7 +107,15 @@ item:
     - "&8 • &fЛомает обсидиан, плачущий обсидиан и древние обломки."
     - "&8 • &cРейд-блок 5 минут на месте взрыва."
   glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
 
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
 recipe:
   shape:
     - "GGG"

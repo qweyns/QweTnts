@@ -1,48 +1,129 @@
-# Динамит A — базовый заряд: радиус урона осаде ×3, радиус ломания блоков
-# больше обычного (power 6 против 4 у ванильного TNT), фитиль 5 секунд.
-#
-# Обсидиан НЕ берёт: у него взрывоустойчивость 1200, а потолок здесь 60.
-# Чтобы ломать обсидиан — берите C4 или Разрывную волну.
-name: dynamite_a
-display_name: "Динамит A"
+# ============================================================
+#   Динамит A — базовый заряд
+# ============================================================
+#  Здесь перечислены ВСЕ настройки динамита с комментариями.
+#  Значение по умолчанию пишется как в этом файле: всё, что не
+#  нравится — меняете; ключ можно просто удалить, тогда сработает
+#  значение из config.yml (или встроенный дефолт).
+# ============================================================
 
-explosion-type: DYNAMITE_A
-radius-multiplier: 3.0
-siege-damage: 1
+name: dynamite_a          # id динамита (право qwetnts.type.dynamite_a)
+display_name: "Динамит A" # имя для сообщений и команды /qtnt list
+enabled: true             # false — динамит полностью выключен и не грузится
 
-fuse-seconds: 5
-power: 6
-cut-entity-damage: 0
-works-in-water: false
-works-in-lava: false
+# --- Установка и права --------------------------------------
+placement:
+  placeable: true         # можно ставить блоком (при auto: false)
+  consume-on-use: true    # тратить предмет при установке/поджоге (в креативе не тратится)
+  permission: ""          # пусто = стандартное право qwetnts.type.<name>
+  permission-required: true # false — использовать могут все, даже без права
 
-# Раскомментируйте, если конкретно этот динамит должен поджигаться сам,
-# независимо от settings.dynamites.auto-ignite в config.yml.
-# auto-ignite: false
+# --- ПОДЖОГ (ключевой переключатель) ------------------------
+ignition:
+  # true  — загорается сразу из руки ("поджигает сам себя")
+  # false — ставится блоком и ждёт огня
+  # Ключ можно удалить: тогда берётся settings.dynamites.auto-ignite из config.yml
+  auto: false
 
-# --- Что ломает взрыв --------------------------------------------------
+  # Чем именно можно поджечь установленный заряд.
+  # Доступно: FLINT_AND_STEEL, FIRE_CHARGE, FIRE, LAVA, EXPLOSION, LIGHTNING, PUNCH
+  causes: [FLINT_AND_STEEL, FIRE_CHARGE, FIRE, LAVA, EXPLOSION, LIGHTNING]
+
+  delay-ticks: 0          # задержка перед поджогом (0 = сразу)
+
+  # Цепная детонация: взрыв поджигает соседние установленные динамиты
+  chain:
+    enabled: true         # сам поджигает соседей
+    can-be-chained: true  # может быть подожжён другим взрывом
+    radius: 4             # радиус поиска соседей (блоков)
+    delay-ticks: 2        # задержка перед поджогом соседа
+
+# --- Взрыв --------------------------------------------------
+explosion:
+  type: DYNAMITE_A        # строковый тип взрыва для QPS (секция explosions в regions.yml)
+  radius-multiplier: 3.0  # множитель радиуса урона осаде (§3.1 ТЗ)
+  power: 6                # мощность: vanilla TNT = 4
+  fire: false             # поджигать ли блоки вокруг
+  fuse-seconds: 5         # фитиль
+  fuse-spread-ticks: 0    # случайный разброс фитиля ±N тиков (0 = точно)
+  works-in-water: false   # не гаснет в воде
+  works-in-lava: false    # не гаснет в лаве
+  siege-damage: 1         # сколько прочности снимает привату
+  max-blocks: 0           # предел разрушенных блоков (0 = без предела)
+
+# --- Урон живым ---------------------------------------------
+damage:
+  cut-entity: 0           # срезать % урона мобам
+  cut-player: 0           # срезать % урона игрокам
+  multiplier: 1.0         # общий множитель урона
+
+# --- Что ломает (модель взрывоустойчивости) ------------------
 breaking:
-  # Жёсткий потолок взрывоустойчивости: блоки с сопротивлением выше
-  # не трогаем вообще (обсидиан = 1200, древние обломки = 1200,
-  # булыжник = 6, глубокий сланец = 6).
-  max-resistance: 60
-  # Множитель из ванильной формулы: эффективное сопротивление =
-  # (resistance + 0.3) * resistance-scale. Меньше значение — легче ломать.
+  vanilla-blocklist: true # учитывать список блоков от vanilla
+  # Жёсткий потолок сопротивления (обсидиан = 1200, булыжник = 6).
+  max-resistance: 60      # 60 — обычные блоки; обсидиан этот динамит не берёт
+  # Формула vanilla: эффективное сопротивление = (resistance + 0.3) * scale
   resistance-scale: 0.3
-  # Шанс, что сломанный блок выпадет предметом (для блоков без явного правила).
-  default-drop-chance: 100
-  # Явные правила по материалам. Они перекрывают и потолок, и формулу —
-  # единственный способ дать динамиту пробить обсидиан.
-  blocks: { }
+  default-drop-chance: 100 # шанс, что сломанный блок выпадет предметом
+  scan-radius: 0          # радиус досмотра прочных блоков (0 = как в config.yml)
+  blocks: { }             # явные правила: единственный способ пробить обсидиан
   #  blocks:
   #    OBSIDIAN:
-  #      break-chance: 100     # шанс сломать, %
-  #      drop-chance: 0        # шанс, что блок выпадет предметом, %
+  #      break-chance: 100
+  #      drop-chance: 0
 
+# --- Деградация блоков --------------------------------------
+transforms: { }
+#  transforms:
+#    ANCIENT_DEBRIS:
+#      to: OBSIDIAN
+#      chance: 100
+
+# --- Рейд-блок (анти-феникс) --------------------------------
 raid-block:
   enabled: false
   duration-seconds: 300
+  materials: [OBSIDIAN, CRYING_OBSIDIAN, ANCIENT_DEBRIS, REINFORCED_DEEPSLATE]
+  radius: 0               # 0 — метка только на самой позиции, N — ещё и вокруг
 
+# --- Ограничения (-1 = взять из config.yml) -----------------
+limits:
+  cooldown-millis: -1     # свой кулдаун установки/поджога
+  max-primed-per-player: -1
+  max-primed-per-chunk: -1
+  worlds:
+    mode: INHERIT         # INHERIT | ALLOWED | BLOCKED
+    allowed: []
+    blocked: []
+
+# --- Эффекты ------------------------------------------------
+effects:
+  on-place:
+    sound: ""             # ключ звука (например block.stone.place)
+    category: BLOCKS      # MASTER, MUSIC, RECORDS, WEATHER, BLOCKS, PLAYERS, AMBIENT, NEUTRAL
+    volume: 0.8
+    pitch: 1.0
+    particle: ""          # имя Particle (EXPLOSION, FLAME, SMOKE ...)
+    particle-count: 0
+    spread: 0.3
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: FLAME
+    particle-count: 6
+    spread: 0.2
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: EXPLOSION
+    particle-count: 1
+    spread: 0.0
+
+# --- Предмет ------------------------------------------------
 item:
   material: TNT
   display_name: "&6Динамит A"
@@ -51,8 +132,18 @@ item:
     - "&8 • &fРадиус урона осаде в &e3 раза&f больше обычного."
     - "&8 • &fФитиль: &e5 &fсекунд."
     - "&8 • &fОбсидиан не берёт: нужен C4 или Разрывная волна."
-  glow: true
+  glow: true              # свечение без фейкового зачарования
+  custom-model-data: 0    # 0 — не задавать
+  item-model: ""          # например minecraft:my_dynamite (1.21.4+, ресурс-пак)
+  unbreakable: false
 
+# --- Сообщения (пусто = взять из lang/*.yml) ----------------
+messages:
+  placed: ""
+  ignited: ""
+
+# --- Крафт --------------------------------------------------
+craftable: true
 recipe:
   shape:
     - "GSG"

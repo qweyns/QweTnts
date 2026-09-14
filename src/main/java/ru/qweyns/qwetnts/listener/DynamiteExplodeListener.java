@@ -21,6 +21,8 @@ import ru.qweyns.qwetnts.dynamite.BlastMath;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.BreakRule;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.Breaking;
+import ru.qweyns.qwetnts.dynamite.DynamiteType.TransformRule;
+import ru.qweyns.qwetnts.util.Effects;
 import ru.qweyns.qwetnts.util.Materials;
 import ru.qweyns.qwetnts.util.Schedulers;
 
@@ -47,8 +49,8 @@ import java.util.random.RandomGenerator;
  *       ставится отдельной задачей, а не «в лоб» внутри события.</li>
  *   <li><b>Рейд-блоки.</b> Отмечаются только те позиции, где блок реально
  *       исчез (проверяем через тик после взрыва).</li>
- *   <li><b>Анти-лаг.</b> Вся тяжёлая работа — по возможности порционно:
- *       сканирование ограничено радиусом {@code max-break-scan-radius},
+ *   <li><b>Анти-лаг.</b> Скан ограничен {@code breaking.scan-radius} и
+ *       глобальным потолком, есть жёсткий предел {@code explosion.max-blocks},
  *       а изменения блоков группируются по чанкам (на Folia это ещё и
  *       гарантия, что мы не трогаем чужой регион).</li>
  * </ol>
@@ -61,7 +63,8 @@ public final class DynamiteExplodeListener implements Listener {
     private record Pending(@NotNull Block block,
                            @NotNull Action action,
                            @Nullable Material to,
-                           long raidDurationMs) {
+                           long raidDurationMs,
+                           int raidRadius) {
     }
 
     private record ChunkRef(UUID world, int cx, int cz) {
@@ -92,21 +95,21 @@ public final class DynamiteExplodeListener implements Listener {
         World world = center.getWorld();
         if (world == null) return;
 
-        // Учёт анти-лага: заряд больше не в воздухе.
         Player source = sourceOf(tnt);
         Chunk chunk = center.getChunk();
         plugin.antiLag().release(source != null ? source.getUniqueId() : null, chunk);
 
-        // Статистика и предохранитель от безумной мощности.
-        plugin.stats().recordExplosion(type.explosionType());
-        if (type.power() > plugin.settings().antiLag().largeExplosionThresholdPower()) {
+        plugin.stats().recordExplosion(type.explosion().type());
+        if (type.explosion().power() > plugin.settings().antiLag().largeExplosionThresholdPower()) {
             plugin.getLogger().warning("Очень мощный динамит '" + type.id()
-                    + "' (power=" + type.power() + ") в мире " + world.getName()
+                    + "' (power=" + type.explosion().power() + ") в мире " + world.getName()
                     + " — возможны просадки тиков.");
         }
 
+        Effects.play(plugin, type.effects().explode(), center);
+
         // Мир и зона спавна.
-        if (!plugin.settings().worldFilter().isAllowed(world)) {
+        if (!type.isAllowedIn(world, plugin.settings().worldFilter())) {
             event.blockList().clear();
             return;
         }
@@ -117,18 +120,24 @@ public final class DynamiteExplodeListener implements Listener {
 
         // Вода/лава гасят динамит, если это не разрешено явно.
         Material centerMaterial = center.getBlock().getType();
-        if (centerMaterial == Material.WATER && !type.worksInWater()) {
+        if (centerMaterial == Material.WATER && !type.explosion().worksInWater()) {
             event.blockList().clear();
             return;
         }
-        if (centerMaterial == Material.LAVA && !type.worksInLava()) {
+        if (centerMaterial == Material.LAVA && !type.explosion().worksInLava()) {
             event.blockList().clear();
             return;
+        }
+
+        // Если vanilla-список не нужен, ломаем только по своим правилам.
+        if (!type.breaking().vanillaBlockList()) {
+            event.blockList().clear();
         }
 
         List<Pending> pending = new ArrayList<>();
         processBlockList(event, type, pending);
         scanHardBlocks(center, type, event.blockList(), pending);
+        applyBlockBudget(type, event.blockList(), pending);
 
         if (!pending.isEmpty()) {
             schedulePending(pending);
@@ -172,31 +181,31 @@ public final class DynamiteExplodeListener implements Listener {
                 }
                 if (!rule.keepDrop(random)) {
                     iterator.remove();
-                    pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L));
+                    pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L, 0));
                 }
                 queueRaid(type, block, material, pending);
                 continue;
             }
 
             double resistance = Materials.blastResistance(block);
-            if (!BlastMath.canBreak(resistance, type.power(),
+            if (!BlastMath.canBreak(resistance, type.explosion().power(),
                     breaking.maxResistance(), breaking.resistanceScale())) {
-                // Слишком прочный: vanilla мог положить его в список только
-                // из-за огромного power — убираем.
                 iterator.remove();
                 continue;
             }
 
-            Material to = type.transforms().get(material);
-            if (to != null) {
+            TransformRule transform = type.transforms().get(material);
+            if (transform != null) {
                 iterator.remove();
-                pending.add(new Pending(block, Action.TRANSFORM, to, 0L));
+                if (BlastMath.roll(transform.chance(), random)) {
+                    pending.add(new Pending(block, Action.TRANSFORM, transform.to(), 0L, 0));
+                }
                 continue;
             }
 
             if (!BlastMath.roll(breaking.defaultDropChance(), random)) {
                 iterator.remove();
-                pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L));
+                pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L, 0));
             }
 
             queueRaid(type, block, material, pending);
@@ -205,20 +214,16 @@ public final class DynamiteExplodeListener implements Listener {
 
     /**
      * Досмотр прочных блоков, которых vanilla не дала в {@code blockList}
-     * (обсидиан, плачущий обсидиан, древние обломки).
-     *
-     * <p>Радиус ограничен настройкой {@code anti-lag.max-break-scan-radius} —
-     * чтобы мощный динамит не превращался в лаг-машину.</p>
+     * (обсидиан, плачущий обсидиан, древние обломки, вода, лава).
      */
     private void scanHardBlocks(@NotNull Location center,
                                 @NotNull DynamiteType type,
                                 @NotNull List<Block> blockList,
                                 @NotNull List<Pending> pending) {
         Breaking breaking = type.breaking();
-        if (breaking.blocks().isEmpty()) return;
+        if (breaking.blocks().isEmpty() && type.transforms().isEmpty()) return;
 
-        int radius = BlastMath.scanRadius(type.power(),
-                plugin.settings().antiLag().maxBreakScanRadius());
+        int radius = type.scanRadius(plugin.settings().antiLag().maxBreakScanRadius());
         RandomGenerator random = BlastMath.random();
 
         World world = center.getWorld();
@@ -229,7 +234,6 @@ public final class DynamiteExplodeListener implements Listener {
         int cz = center.getBlockZ();
         int radiusSquared = radius * radius;
 
-        int scanned = 0;
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
                 for (int z = -radius; z <= radius; z++) {
@@ -238,35 +242,32 @@ public final class DynamiteExplodeListener implements Listener {
                     Block block = world.getBlockAt(cx + x, cy + y, cz + z);
                     Material material = block.getType();
 
-                    Material to = type.transforms().get(material);
+                    TransformRule transform = type.transforms().get(material);
                     BreakRule rule = breaking.ruleFor(material);
-                    if (rule == null && to == null) continue; // блок не интересует
-                    if (blockList.contains(block)) continue;  // уже решено vanilla
+                    if (rule == null && transform == null) continue; // блок не интересует
+                    if (blockList.contains(block)) continue;         // уже решено vanilla
                     if (Materials.isIndestructible(material)) continue;
                     if (!plugin.qps().canExplode(block)) continue;
 
-                    scanned++;
-
                     // Трансформация важнее ломания: древние обломки деградируют
                     // в обсидиан, а не исчезают.
-                    if (to != null) {
-                        pending.add(new Pending(block, Action.TRANSFORM, to, 0L));
+                    if (transform != null) {
+                        if (BlastMath.roll(transform.chance(), random)) {
+                            pending.add(new Pending(block, Action.TRANSFORM, transform.to(), 0L, 0));
+                        }
                         continue;
                     }
+
                     if (!BlastMath.roll(rule.breakChance(), random)) continue;
 
                     if (rule.keepDrop(random)) {
                         blockList.add(block); // пусть сервер выбьет блок с дропом
                     } else {
-                        pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L));
+                        pending.add(new Pending(block, Action.REMOVE_SILENTLY, null, 0L, 0));
                     }
                     queueRaid(type, block, material, pending);
                 }
             }
-        }
-
-        if (scanned > 0 && plugin.settings().antiLag().maxBreakScanRadius() < radius) {
-            plugin.getLogger().fine("Скан прочных блоков '" + type.id() + "': " + scanned + " поз.");
         }
     }
 
@@ -275,8 +276,39 @@ public final class DynamiteExplodeListener implements Listener {
                            @NotNull Material material,
                            @NotNull List<Pending> pending) {
         if (!type.raidBlock().enabled()) return;
-        if (!Materials.RAID_BLOCK_FAMILY.contains(material)) return;
-        pending.add(new Pending(block, Action.MARK_RAID, null, type.raidBlock().durationMs()));
+        if (!type.raidBlock().materials().contains(material)) return;
+        pending.add(new Pending(block, Action.MARK_RAID, null,
+                type.raidBlock().durationMs(), type.raidBlock().radius()));
+    }
+
+    /** Жёсткий предел числа разрушенных блоков (защита от лаг-машины). */
+    private void applyBlockBudget(@NotNull DynamiteType type,
+                                  @NotNull List<Block> blockList,
+                                  @NotNull List<Pending> pending) {
+        int max = type.explosion().maxBlocks();
+        if (max <= 0) return;
+
+        if (blockList.size() > max) {
+            blockList.subList(max, blockList.size()).clear();
+        }
+
+        int budget = max - blockList.size();
+        if (budget <= 0) {
+            pending.removeIf(item -> item.action() != Action.MARK_RAID);
+            return;
+        }
+
+        int used = 0;
+        Iterator<Pending> iterator = pending.iterator();
+        while (iterator.hasNext()) {
+            Pending item = iterator.next();
+            if (item.action() == Action.MARK_RAID) continue;
+            if (used >= budget) {
+                iterator.remove();
+                continue;
+            }
+            used++;
+        }
     }
 
     /**
@@ -295,8 +327,7 @@ public final class DynamiteExplodeListener implements Listener {
             byChunk.computeIfAbsent(ref, key -> new ArrayList<>()).add(item);
         }
 
-        for (Map.Entry<ChunkRef, List<Pending>> entry : byChunk.entrySet()) {
-            List<Pending> group = entry.getValue();
+        for (List<Pending> group : byChunk.values()) {
             if (group.isEmpty()) continue;
 
             List<Pending> snapshot = List.copyOf(group);
@@ -325,13 +356,7 @@ public final class DynamiteExplodeListener implements Listener {
                         block.setType(to, false);
                     }
                 }
-                case MARK_RAID -> {
-                    // Отмечаем только то, что реально разрушилось: если блок
-                    // уцелел (например, его «защитил» другой плагин), рейд-блока нет.
-                    if (Materials.isEmpty(block.getType()) || Materials.isLiquid(block.getType())) {
-                        plugin.raidBlocks().mark(block.getLocation(), item.raidDurationMs());
-                    }
-                }
+                case MARK_RAID -> markRaid(block, item);
             }
         } catch (IllegalStateException ex) {
             // Folia: попытка тронуть чужой регион. Не роняем сервер.
@@ -340,13 +365,40 @@ public final class DynamiteExplodeListener implements Listener {
         }
     }
 
+    private void markRaid(@NotNull Block block, @NotNull Pending item) {
+        // Отмечаем только то, что реально разрушилось: если блок уцелел
+        // (например, его «защитил» другой плагин), рейд-блока нет.
+        if (!Materials.isEmpty(block.getType()) && !Materials.isLiquid(block.getType())) return;
+
+        plugin.raidBlocks().mark(block.getLocation(), item.raidDurationMs());
+
+        int radius = item.raidRadius();
+        if (radius > 0) {
+            markRaidAround(block, radius, item.raidDurationMs());
+        }
+    }
+
+    private void markRaidAround(@NotNull Block center, int radius, long durationMs) {
+        Location location = center.getLocation();
+        int radiusSquared = radius * radius;
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    if (x * x + y * y + z * z > radiusSquared) continue;
+                    if (x == 0 && y == 0 && z == 0) continue;
+                    plugin.raidBlocks().mark(location.clone().add(x, y, z), durationMs);
+                }
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // Урон по сущностям
     // ------------------------------------------------------------------
 
     /**
-     * Срезание урона игрокам и мобам: «Разрывная волна» почти не калечит,
-     * зато ломает блоки.
+     * Урон: у каждого динамита свои срезания для игроков и мобов плюс
+     * общий множитель («Разрывная волна» почти не калечит, зато ломает блоки).
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamage(@NotNull EntityDamageEvent event) {
@@ -355,31 +407,37 @@ public final class DynamiteExplodeListener implements Listener {
         Entity victim = event.getEntity();
         if (victim instanceof TNTPrimed) return;
 
-        World world = victim.getWorld();
-        if (world == null) return;
+        DynamiteType type = findTypeNear(victim.getLocation());
+        if (type == null) return;
 
-        int cut = findDamageCut(victim.getLocation());
-        if (cut <= 0) return;
+        int cut = victim instanceof Player
+                ? type.damage().cutPlayer()
+                : type.damage().cutEntity();
+        double multiplier = type.damage().multiplier();
 
-        double multiplier = 1.0 - (cut / 100.0);
-        if (multiplier <= 0.0) {
+        double damage = event.getDamage() * multiplier;
+        if (cut > 0) {
+            damage *= 1.0 - (cut / 100.0);
+        }
+
+        if (damage <= 0.0) {
             event.setCancelled(true);
             return;
         }
-        event.setDamage(event.getDamage() * multiplier);
+        event.setDamage(damage);
     }
 
-    /** Максимальное срезание урона среди горящих динамитов рядом. */
-    private int findDamageCut(@NotNull Location location) {
+    /** Тип ближайшего горящего динамита (для срезания урона). */
+    private @Nullable DynamiteType findTypeNear(@NotNull Location location) {
         World world = location.getWorld();
-        if (world == null) return 0;
+        if (world == null) return null;
 
-        int cut = 0;
         double radius = 6.0;
+        DynamiteType found = null;
+        int bestCut = -1;
 
         for (Entity entity : world.getNearbyEntities(location, radius, radius, radius)) {
             if (!(entity instanceof TNTPrimed tnt)) continue;
-            if (tnt.getFuseTicks() <= 0 && tnt.isDead()) continue;
 
             String kind = tnt.getPersistentDataContainer()
                     .get(plugin.keys().dynamiteKind, PersistentDataType.STRING);
@@ -388,9 +446,13 @@ public final class DynamiteExplodeListener implements Listener {
             DynamiteType type = plugin.registry().byId(kind);
             if (type == null) continue;
 
-            cut = Math.max(cut, type.cutEntityDamage());
+            int cut = Math.max(type.damage().cutPlayer(), type.damage().cutEntity());
+            if (cut > bestCut) {
+                bestCut = cut;
+                found = type;
+            }
         }
-        return cut;
+        return found;
     }
 
     // ------------------------------------------------------------------

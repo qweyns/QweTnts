@@ -1,30 +1,57 @@
-# Разрывная волна — ломает обсидиан, работает в воде и лаве (уничтожая их),
-# превращает древние обломки в обычный обсидиан, сносит 2 прочности привата
-# за раз и оставляет рейд-блок на 5 минут.
+# ============================================================
+#   Разрывная волна
+# ============================================================
+#  Ломает обсидиан, работает в воде и лаве (уничтожая их),
+#  превращает древние обломки в обычный обсидиан, сносит
+#  2 прочности привата за раз и оставляет рейд-блок на 5 минут.
 #
-# Важно: древние обломки НЕ ломаются, а деградируют — первый взрыв делает из
-# них обсидиан, и только следующий его выбивает. Ядра приватов (isCore)
-# трансформация не затрагивает никогда.
+#  Полный список настроек с пояснениями — в dynamite_a.yml.
+# ============================================================
+
 name: shockwave
 display_name: "Разрывная волна"
+enabled: true
 
-explosion-type: SHOCKWAVE
-radius-multiplier: 1.0
-siege-damage: 2
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
 
-fuse-seconds: 4
-power: 4
-cut-entity-damage: 0
-works-in-water: true
-works-in-lava: true
+ignition:
+  auto: false               # ставится блоком и ждёт огня
+  causes: [FLINT_AND_STEEL, FIRE_CHARGE, FIRE, LAVA, EXPLOSION, LIGHTNING]
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
 
-# auto-ignite: false
+explosion:
+  type: SHOCKWAVE
+  radius-multiplier: 1.0
+  power: 4
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: true      # не гаснет в воде
+  works-in-lava: true       # не гаснет в лаве
+  siege-damage: 2           # сносит 2 прочности за раз
+  max-blocks: 0
 
-# --- Что ломает взрыв --------------------------------------------------
+damage:
+  # Волна почти не калечит игроков: она про блоки, а не про урон.
+  cut-entity: 30
+  cut-player: 60
+  multiplier: 1.0
+
 breaking:
+  vanilla-blocklist: true
   max-resistance: 1200
   resistance-scale: 0.3
   default-drop-chance: 100
+  scan-radius: 4
   blocks:
     OBSIDIAN:
       break-chance: 100
@@ -34,24 +61,56 @@ breaking:
       drop-chance: 0
     ANCIENT_DEBRIS:
       break-chance: 100
-      drop-chance: 100      # деградация важнее дропа: см. transformable-blocks
-    WATER:
+      drop-chance: 100      # деградация важнее дропа: см. transforms
+    WATER:                  # уничтожает воду вокруг
       break-chance: 100
       drop-chance: 0
-    LAVA:
+    LAVA:                   # и лаву
       break-chance: 100
       drop-chance: 0
 
-# Деградация: материал -> во что превращается.
-transformable-blocks:
+# Древние обломки НЕ ломаются, а деградируют: первый взрыв делает из них
+# обсидиан, следующий его выбивает. Ядра приватов (isCore) не трогаем никогда.
+transforms:
   ANCIENT_DEBRIS:
     to: OBSIDIAN
+    chance: 100
   REINFORCED_DEEPSLATE:
     to: OBSIDIAN
+    chance: 100
 
 raid-block:
   enabled: true
   duration-seconds: 300
+  materials: [OBSIDIAN, CRYING_OBSIDIAN, ANCIENT_DEBRIS, REINFORCED_DEEPSLATE]
+  radius: 0
+
+limits:
+  cooldown-millis: -1
+  max-primed-per-player: -1
+  max-primed-per-chunk: -1
+  worlds:
+    mode: INHERIT
+    allowed: []
+    blocked: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.2
+    particle: SOUL_FIRE_FLAME
+    particle-count: 8
+    spread: 0.3
+  on-explode:
+    sound: entity.lightning_bolt.thunder
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: EXPLOSION_EMITTER
+    particle-count: 1
+    spread: 0.0
 
 item:
   material: TNT
@@ -64,7 +123,15 @@ item:
     - "&8 • &fСносит &b2 прочности&f привата за раз."
     - "&8 • &cРейд-блок 5 минут на месте взрыва."
   glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
 
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
 recipe:
   shape:
     - "GSG"

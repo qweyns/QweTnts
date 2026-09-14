@@ -106,6 +106,22 @@ public final class Lang {
         to.sendMessage(message);
     }
 
+    /**
+     * Отправить сообщение: если динамит (или команда) переопределяет текст —
+     * берём его, иначе ключ из lang-файла.
+     */
+    public void sendOr(@Nullable CommandSender to,
+                       @Nullable String override,
+                       @NotNull String key,
+                       String... replacements) {
+        if (to == null) return;
+        if (override != null && !override.isBlank()) {
+            to.sendMessage(Colors.format(applyPrefix(override)));
+            return;
+        }
+        send(to, key, replacements);
+    }
+
     /** Сообщение со списком строк (каждая строка lang-файла — отдельная строка чата). */
     public void sendList(@Nullable CommandSender to, @NotNull String path, String... replacements) {
         if (to == null) return;

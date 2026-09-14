@@ -86,9 +86,9 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
             plugin.lang().send(sender, "command_list_item",
                     "%id%", type.id(),
                     "%name%", type.displayName(),
-                    "%power%", String.valueOf((int) type.power()),
-                    "%explosion%", type.explosionType(),
-                    "%siege%", String.valueOf(type.siegeDamage()),
+                    "%power%", String.valueOf((int) type.explosion().power()),
+                    "%explosion%", type.explosion().type(),
+                    "%siege%", String.valueOf(type.explosion().siegeDamage()),
                     "%ignite%", plugin.lang().raw(type.isAutoIgnite(plugin.settings().dynamites().autoIgnite())
                             ? "value_auto" : "value_manual"));
         }

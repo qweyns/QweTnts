@@ -18,12 +18,13 @@ import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.antilag.AntiLag;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
 import ru.qweyns.qwetnts.dynamite.PlacedDynamiteManager;
+import ru.qweyns.qwetnts.util.Effects;
 
 /**
  * Установка динамита блоком.
  *
- * <p>Пока {@code auto-ignite} выключен, предмет TNT ставится обычной ванильной
- * установкой — значит, событие {@link BlockPlaceEvent} могут отменить QPS,
+ * <p>Пока {@code ignition.auto} выключен, предмет TNT ставится обычной
+ * ванильной установкой — значит, {@link BlockPlaceEvent} могут отменить QPS,
  * WorldGuard и прочие плагины. Мы это уважаем: свои проверки делаем на
  * приоритете HIGH, а запись в реестр — только на MONITOR, когда событие
  * точно не отменено.</p>
@@ -44,6 +45,11 @@ public final class DynamitePlaceListener implements Listener {
 
         Block block = event.getBlock();
         if (block.getType() != Material.TNT) return;
+        if (!type.placement().placeable()) {
+            event.setCancelled(true);
+            plugin.lang().send(event.getPlayer(), "cannot_place_here");
+            return;
+        }
 
         Player player = event.getPlayer();
         Location location = block.getLocation();
@@ -57,7 +63,7 @@ public final class DynamitePlaceListener implements Listener {
         World world = block.getWorld();
         boolean bypassWorld = player.hasPermission("qwetnts.bypass.world");
 
-        if (!bypassWorld && !plugin.settings().worldFilter().isAllowed(world)) {
+        if (!bypassWorld && !type.isAllowedIn(world, plugin.settings().worldFilter())) {
             plugin.lang().send(player, "world_disabled", "%world%", world.getName());
             event.setCancelled(true);
             return;
@@ -68,7 +74,8 @@ public final class DynamitePlaceListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (!player.hasPermission("qwetnts.bypass.region") && !plugin.qps().canPlace(player, location)) {
+        if (!player.hasPermission("qwetnts.bypass.region")
+                && !plugin.qps().canPlace(player, location)) {
             plugin.lang().send(player, "region_denied");
             event.setCancelled(true);
             return;
@@ -76,11 +83,13 @@ public final class DynamitePlaceListener implements Listener {
 
         AntiLag.Deny deny = player.hasPermission("qwetnts.bypass.antilag")
                 ? AntiLag.Deny.NONE
-                : plugin.antiLag().tryActivate(player.getUniqueId(), block.getChunk());
+                : plugin.antiLag().tryActivate(player.getUniqueId(), block.getChunk(),
+                        type.cooldownMillis(plugin.settings().antiLag().activationCooldownMillis()),
+                        type.maxPerPlayer(plugin.settings().antiLag().maxPrimedPerPlayer()),
+                        type.maxPerChunk(plugin.settings().antiLag().maxPrimedPerChunk()));
         if (deny != AntiLag.Deny.NONE) {
             notifyDeny(player, deny);
             event.setCancelled(true);
-            return;
         }
     }
 
@@ -96,10 +105,13 @@ public final class DynamitePlaceListener implements Listener {
         Player player = event.getPlayer();
         plugin.placedDynamites().put(block, type.id(), player.getUniqueId(), player.getName());
 
-        if (type.needsManualIgnition(plugin.settings().dynamites().autoIgnite())) {
-            plugin.lang().send(player, "dynamite_placed", "%name%", type.displayName());
-            plugin.lang().send(player, "ignition_hint", "%name%", type.displayName());
-        }
+        Effects.play(plugin, type.effects().place(), block.getLocation().add(0.5, 0.5, 0.5));
+
+        if (type.isAutoIgnite(plugin.settings().dynamites().autoIgnite())) return;
+
+        plugin.lang().sendOr(player, type.messages().placed(), "dynamite_placed",
+                "%name%", type.displayName());
+        plugin.lang().send(player, "ignition_hint", "%name%", type.displayName());
     }
 
     /** Сломал установленный динамит — возвращаем предмет с PDC-меткой. */
@@ -124,8 +136,7 @@ public final class DynamitePlaceListener implements Listener {
         ItemStack drop = type.item();
         if (drop.getType().isAir()) return;
 
-        Location dropAt = block.getLocation().add(0.5, 0.5, 0.5);
-        block.getWorld().dropItemNaturally(dropAt, drop);
+        block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), drop);
         plugin.lang().send(player, "dynamite_removed", "%name%", type.displayName());
     }
 
@@ -141,8 +152,8 @@ public final class DynamitePlaceListener implements Listener {
     private void notifyDeny(@NotNull Player player, @NotNull AntiLag.Deny deny) {
         switch (deny) {
             case COOLDOWN -> plugin.lang().send(player, "cooldown",
-                    "%seconds%", String.valueOf(
-                            Math.max(1L, plugin.antiLag().cooldownRemaining(player.getUniqueId()) / 1000L)));
+                    "%seconds%", plugin.lang().duration(
+                            plugin.antiLag().cooldownRemaining(player.getUniqueId())));
             case PLAYER_LIMIT -> plugin.lang().send(player, "player_limit");
             case CHUNK_LIMIT -> plugin.lang().send(player, "chunk_limit");
             case NONE -> { /* разрешено */ }
@@ -150,7 +161,8 @@ public final class DynamitePlaceListener implements Listener {
     }
 
     private boolean hasPermission(@NotNull Player player, @NotNull DynamiteType type) {
-        return player.hasPermission("qwetnts.type." + type.id())
+        if (!type.requiresPermission()) return true;
+        return player.hasPermission(type.permission())
                 || player.hasPermission("qwetnts.use");
     }
 

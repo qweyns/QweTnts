@@ -22,22 +22,20 @@ import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.antilag.AntiLag;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
+import ru.qweyns.qwetnts.util.Effects;
 import ru.qweyns.qwetnts.util.Materials;
 
 /**
  * Использование динамита в руке.
  *
- * <p>Два режима (переключатель {@code settings.dynamites.auto-ignite},
- * по умолчанию <b>выключен</b>):</p>
- * <ul>
- *   <li>{@code auto-ignite: false} — динамит <b>ставится блоком</b> и ждёт
- *       поджига (огниво, огонь, лава, другой взрыв). Именно так на HolyWorld:
- *       заряд не должен загораться сам в руке;</li>
- *   <li>{@code auto-ignite: true} — прежнее поведение: клик — и заряд горит.</li>
- * </ul>
+ * <p>Режим поджога задаётся у каждого динамита своим ключом
+ * {@code ignition.auto: true/false} в файле {@code dynamites/*.yml}.
+ * Если ключ не задан, работает глобальное
+ * {@code settings.dynamites.auto-ignite} из config.yml (по умолчанию
+ * {@code false} — динамит ставится блоком и ждёт огня).</p>
  *
- * <p>Флаг можно переопределить для конкретного динамита ключом
- * {@code auto-ignite} в его файле.</p>
+ * <p>Помимо поджога здесь же: право доступа, фильтр мира, радиус спавна,
+ * свои лимиты анти-лага, расход предмета, эффекты и сообщения.</p>
  */
 public final class DynamiteUseListener implements Listener {
 
@@ -71,12 +69,13 @@ public final class DynamiteUseListener implements Listener {
         World world = player.getWorld();
         boolean bypassWorld = player.hasPermission("qwetnts.bypass.world");
 
-        if (!bypassWorld && !plugin.settings().worldFilter().isAllowed(world)) {
-            plugin.lang().send(player, "world_disabled", "%world%", world.getName());
+        if (!bypassWorld && !type.isAllowedIn(world, plugin.settings().worldFilter())) {
+            plugin.lang().send(player, "world_disabled", "%world%",
+                    world == null ? "" : world.getName());
             event.setCancelled(true);
             return;
         }
-        if (!bypassWorld && isInSpawnRadius(player.getLocation(), plugin.settings().spawnRadius())) {
+        if (!bypassWorld && inSpawnRadius(player.getLocation(), plugin.settings().spawnRadius())) {
             plugin.lang().send(player, "spawn_protected",
                     "%radius%", String.valueOf(plugin.settings().spawnRadius()));
             event.setCancelled(true);
@@ -89,22 +88,26 @@ public final class DynamiteUseListener implements Listener {
             return; // сундук/верстак/дверь — не мешаем ванили
         }
 
-        boolean autoIgnite = type.isAutoIgnite(plugin.settings().dynamites().autoIgnite());
-
-        if (autoIgnite) {
+        if (type.isAutoIgnite(plugin.settings().dynamites().autoIgnite())) {
             handleAutoIgnite(event, player, type, clicked);
             return;
         }
 
-        // Автоподжог выключен: TNT ставится ванилью ( BlockPlaceEvent перехватим
-        // отдельно ), для остальных материалов ставим блок сами.
+        if (!type.placement().placeable()) {
+            // Динамит нельзя поставить — значит, поджигаем сразу, как раньше.
+            handleAutoIgnite(event, player, type, clicked);
+            return;
+        }
+
+        // TNT ставит vanilla — поймаем в BlockPlaceEvent (там же сработает
+        // защита приватов QPS). Остальные материалы ставим сами.
         if (item.getType() == Material.TNT) return;
 
         handleManualPlace(event, player, type, clicked);
     }
 
     // ------------------------------------------------------------------
-    // Режим auto-ignite: поджог сразу из руки
+    // Поджог сразу из руки
     // ------------------------------------------------------------------
 
     private void handleAutoIgnite(@NotNull PlayerInteractEvent event,
@@ -114,7 +117,8 @@ public final class DynamiteUseListener implements Listener {
         Location spawn = spawnLocation(player, clicked, event.getBlockFace());
         if (spawn == null || spawn.getWorld() == null) return;
 
-        if (!player.hasPermission("qwetnts.bypass.region") && !plugin.qps().canPlace(player, spawn)) {
+        if (!player.hasPermission("qwetnts.bypass.region")
+                && !plugin.qps().canPlace(player, spawn)) {
             plugin.lang().send(player, "region_denied");
             event.setCancelled(true);
             return;
@@ -123,7 +127,10 @@ public final class DynamiteUseListener implements Listener {
         Chunk chunk = spawn.getChunk();
         AntiLag.Deny deny = player.hasPermission("qwetnts.bypass.antilag")
                 ? AntiLag.Deny.NONE
-                : plugin.antiLag().tryActivate(player.getUniqueId(), chunk);
+                : plugin.antiLag().tryActivate(player.getUniqueId(), chunk,
+                        type.cooldownMillis(plugin.settings().antiLag().activationCooldownMillis()),
+                        type.maxPerPlayer(plugin.settings().antiLag().maxPrimedPerPlayer()),
+                        type.maxPerChunk(plugin.settings().antiLag().maxPrimedPerChunk()));
         if (deny != AntiLag.Deny.NONE) {
             notifyDeny(player, deny);
             event.setCancelled(true);
@@ -139,12 +146,14 @@ public final class DynamiteUseListener implements Listener {
             return;
         }
 
-        consumeOne(player);
-        plugin.stats().recordExplosion(type.explosionType());
+        consumeOne(player, type);
+        plugin.stats().recordExplosion(type.explosion().type());
+        plugin.lang().sendOr(player, type.messages().ignited(), "dynamite_ignited",
+                "%name%", type.displayName());
     }
 
     // ------------------------------------------------------------------
-    // Режим «поставить и поджечь»
+    // Поставить блоком (поджог отдельно)
     // ------------------------------------------------------------------
 
     private void handleManualPlace(@NotNull PlayerInteractEvent event,
@@ -165,7 +174,8 @@ public final class DynamiteUseListener implements Listener {
         }
 
         Location location = target.getLocation();
-        if (!player.hasPermission("qwetnts.bypass.region") && !plugin.qps().canPlace(player, location)) {
+        if (!player.hasPermission("qwetnts.bypass.region")
+                && !plugin.qps().canPlace(player, location)) {
             plugin.lang().send(player, "region_denied");
             event.setCancelled(true);
             return;
@@ -174,7 +184,10 @@ public final class DynamiteUseListener implements Listener {
         Chunk chunk = target.getChunk();
         AntiLag.Deny deny = player.hasPermission("qwetnts.bypass.antilag")
                 ? AntiLag.Deny.NONE
-                : plugin.antiLag().tryActivate(player.getUniqueId(), chunk);
+                : plugin.antiLag().tryActivate(player.getUniqueId(), chunk,
+                        type.cooldownMillis(plugin.settings().antiLag().activationCooldownMillis()),
+                        type.maxPerPlayer(plugin.settings().antiLag().maxPrimedPerPlayer()),
+                        type.maxPerChunk(plugin.settings().antiLag().maxPrimedPerChunk()));
         if (deny != AntiLag.Deny.NONE) {
             notifyDeny(player, deny);
             event.setCancelled(true);
@@ -186,8 +199,11 @@ public final class DynamiteUseListener implements Listener {
         target.setType(Material.TNT, false);
         plugin.placedDynamites().put(target, type.id(), player.getUniqueId(), player.getName());
 
-        consumeOne(player);
-        plugin.lang().send(player, "dynamite_placed", "%name%", type.displayName());
+        consumeOne(player, type);
+        Effects.play(plugin, type.effects().place(), target.getLocation().add(0.5, 0.5, 0.5));
+
+        plugin.lang().sendOr(player, type.messages().placed(), "dynamite_placed",
+                "%name%", type.displayName());
         plugin.lang().send(player, "ignition_hint", "%name%", type.displayName());
     }
 
@@ -198,27 +214,18 @@ public final class DynamiteUseListener implements Listener {
     private void notifyDeny(@NotNull Player player, @NotNull AntiLag.Deny deny) {
         switch (deny) {
             case COOLDOWN -> plugin.lang().send(player, "cooldown",
-                    "%seconds%", formatSeconds(plugin.antiLag().cooldownRemaining(player.getUniqueId())));
+                    "%seconds%", plugin.lang().duration(
+                            plugin.antiLag().cooldownRemaining(player.getUniqueId())));
             case PLAYER_LIMIT -> plugin.lang().send(player, "player_limit");
             case CHUNK_LIMIT -> plugin.lang().send(player, "chunk_limit");
             case NONE -> { /* разрешено */ }
         }
     }
 
-    private @NotNull String formatSeconds(long millis) {
-        long seconds = Math.max(0L, millis) / 1000L;
-        long minutes = seconds / 60L;
-        long rest = seconds % 60L;
-        if (minutes > 0) {
-            return plugin.lang().raw("time_minutes_seconds",
-                    "%minutes%", String.valueOf(minutes),
-                    "%seconds%", String.valueOf(rest));
-        }
-        return plugin.lang().raw("time_seconds", "%seconds%", String.valueOf(rest));
-    }
-
-    private void consumeOne(@NotNull Player player) {
+    /** Расход: глобальный переключатель И свой у динамита; в креативе не тратим. */
+    private void consumeOne(@NotNull Player player, @NotNull DynamiteType type) {
         if (!plugin.settings().dynamites().consumeOnUse()) return;
+        if (!type.placement().consumeOnUse()) return;
         if (player.getGameMode() == GameMode.CREATIVE) return;
 
         ItemStack main = player.getInventory().getItemInMainHand();
@@ -232,7 +239,8 @@ public final class DynamiteUseListener implements Listener {
     }
 
     private boolean hasPermission(@NotNull Player player, @NotNull DynamiteType type) {
-        return player.hasPermission("qwetnts.type." + type.id())
+        if (!type.requiresPermission()) return true;
+        return player.hasPermission(type.permission())
                 || player.hasPermission("qwetnts.use");
     }
 
@@ -248,20 +256,17 @@ public final class DynamiteUseListener implements Listener {
                                              @Nullable Block clicked,
                                              @Nullable BlockFace face) {
         if (clicked != null && face != null) {
-            Location relative = clicked.getRelative(face).getLocation();
-            return relative.add(0.5, 0.0, 0.5);
+            return clicked.getRelative(face).getLocation().add(0.5, 0.0, 0.5);
         }
         Location eye = player.getEyeLocation();
         if (eye.getWorld() == null) return null;
-        Vector direction = eye.getDirection().normalize().multiply(1.2);
-        return eye.add(direction);
+        return eye.add(eye.getDirection().normalize().multiply(1.2));
     }
 
-    private boolean isInSpawnRadius(@Nullable Location location, int radius) {
+    private boolean inSpawnRadius(@Nullable Location location, int radius) {
         if (location == null || radius <= 0) return false;
         World world = location.getWorld();
-        if (world == null) return false;
-        if (world.getEnvironment() != World.Environment.NORMAL) return false;
+        if (world == null || world.getEnvironment() != World.Environment.NORMAL) return false;
 
         Location spawn = world.getSpawnLocation();
         if (spawn.getWorld() == null) return false;

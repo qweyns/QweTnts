@@ -12,6 +12,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.QweTnts;
+import ru.qweyns.qwetnts.util.Effects;
 
 import java.util.logging.Level;
 
@@ -51,6 +52,7 @@ public final class PrimingService {
         if (primed == null) return null;
 
         block.setType(Material.AIR, false);
+        Effects.play(plugin, type.effects().ignite(), center);
         return primed;
     }
 
@@ -63,7 +65,12 @@ public final class PrimingService {
                                               @Nullable Player igniter) {
         World world = location.getWorld();
         if (world == null) return null;
-        return spawn(world, location, type, igniter);
+
+        TNTPrimed primed = spawn(world, location, type, igniter);
+        if (primed != null) {
+            Effects.play(plugin, type.effects().ignite(), location);
+        }
+        return primed;
     }
 
     private @Nullable TNTPrimed spawn(@NotNull World world,
@@ -74,9 +81,9 @@ public final class PrimingService {
             TNTPrimed primed = world.spawn(location, TNTPrimed.class);
             if (primed == null || !primed.isValid()) return null;
 
-            primed.setFuseTicks(type.fuseTicks());
-            primed.setYield(type.power());
-            primed.setIsIncendiary(false);
+            primed.setFuseTicks(type.rollFuseTicks(BlastMath.random()));
+            primed.setYield(type.explosion().power());
+            primed.setIsIncendiary(type.explosion().fire());
             if (igniter != null && igniter.isOnline()) {
                 primed.setSource(igniter);
             }

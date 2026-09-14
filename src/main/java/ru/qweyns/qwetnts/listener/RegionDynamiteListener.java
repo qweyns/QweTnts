@@ -36,9 +36,9 @@ public final class RegionDynamiteListener implements Listener {
         DynamiteType type = typeOf(tnt);
         if (type == null) return;
 
-        event.setExplosionType(type.explosionType());
-        event.setDamageRadiusMultiplier(type.radiusMultiplier());
-        plugin.stats().recordExplosion(type.explosionType());
+        event.setExplosionType(type.explosion().type());
+        event.setDamageRadiusMultiplier(type.explosion().radiusMultiplier());
+        plugin.stats().recordExplosion(type.explosion().type());
     }
 
     /** Сколько прочности снимает именно этот динамит. */
@@ -50,12 +50,12 @@ public final class RegionDynamiteListener implements Listener {
         DynamiteType type = plugin.registry().byExplosionType(explosionType);
         if (type == null) return;
 
-        event.setDamage(type.siegeDamage());
+        event.setDamage(type.explosion().siegeDamage());
 
         if (event.getRegion() != null) {
             plugin.getLogger().fine(() -> "Приват " + event.getRegion().getShortId()
                     + " атакован динамитом " + type.id()
-                    + " (урон " + type.siegeDamage() + ")");
+                    + " (урон " + type.explosion().siegeDamage() + ")");
         }
     }
 
