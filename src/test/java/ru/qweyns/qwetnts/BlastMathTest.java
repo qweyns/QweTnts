@@ -20,7 +20,7 @@ class BlastMathTest {
     @Test
     void effectiveResistanceFollowsVanillaFormula() {
         // Ванильная формула: (resistance + 0.3) * 0.3
-        assertEquals(0.0, BlastMath.effectiveResistance(0.0, 0.3));
+        assertEquals(0.0, BlastMath.effectiveResistance(0.0, 0.3), 1e-9);
         assertEquals(1.89, BlastMath.effectiveResistance(6.0, 0.3), 1e-6);
         assertEquals(360.09, BlastMath.effectiveResistance(1200.0, 0.3), 1e-6);
     }
@@ -77,7 +77,7 @@ class BlastMathTest {
             double power = BlastMath.randomizedPower(4.0, RANDOM);
             assertTrue(power >= 4.0 * 0.7 - 1e-9 && power <= 4.0 * 1.3 + 1e-9);
         }
-        assertEquals(0.0, BlastMath.randomizedPower(0.0, RANDOM));
+        assertEquals(0.0, BlastMath.randomizedPower(0.0, RANDOM), 1e-9);
     }
 
     @Test

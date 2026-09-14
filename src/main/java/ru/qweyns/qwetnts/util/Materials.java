@@ -119,9 +119,9 @@ public final class Materials {
         if (m == null) return true;
         return switch (m) {
             case BEDROCK, BARRIER, END_PORTAL, END_PORTAL_FRAME, NETHER_PORTAL,
-                 LIGHT, STRUCTURE_BLOCK, STRUCTURE_VOID, SPAWN_POINT,
-                 REINFORCED_DEEPSLATE, COMMAND_BLOCK, CHAIN_COMMAND_BLOCK,
-                 REPEATING_COMMAND_BLOCK, JIGSAW, MOVING_PISTON, PETRIFIED_OAK_SLAB -> true;
+                 LIGHT, STRUCTURE_BLOCK, STRUCTURE_VOID, REINFORCED_DEEPSLATE,
+                 COMMAND_BLOCK, CHAIN_COMMAND_BLOCK, REPEATING_COMMAND_BLOCK,
+                 JIGSAW, MOVING_PISTON, PETRIFIED_OAK_SLAB -> true;
             default -> false;
         };
     }

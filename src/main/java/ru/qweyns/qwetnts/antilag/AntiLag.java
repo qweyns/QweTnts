@@ -105,6 +105,16 @@ public final class AntiLag {
         return true;
     }
 
+    /** Увеличить счётчики (вызывается только после успешной проверки лимитов). */
+    private void register(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
+        if (playerUuid != null) {
+            perPlayer.merge(playerUuid, 1, Integer::sum);
+        }
+        if (chunk != null) {
+            perChunk.merge(ChunkKey.of(chunk), 1, Integer::sum);
+        }
+    }
+
     /** Снять учёт после взрыва. */
     public void release(@Nullable UUID playerUuid, @Nullable Chunk chunk) {
         if (playerUuid != null) {
