@@ -65,23 +65,51 @@
 
 ## Механика поджога
 
-По умолчанию (`settings.dynamites.auto-ignite: false`) динамит **не поджигает
-сам себя**: игрок ставит его обычным блоком TNT, а поджигает отдельно — как на
-HolyWorld.
+Поджог настраивается **у каждого динамита своим ключом** `ignition.auto`
+в файле `dynamites/*.yml`:
 
-| Как поджечь | Условие |
+```yaml
+ignition:
+  auto: false    # true — загорается сразу из руки, false — ставится блоком
+```
+
+Если ключ удалить, работает глобальное `settings.dynamites.auto-ignite`
+из `config.yml` (по умолчанию `false` — как на HolyWorld: динамит ставится
+блоком и ждёт огня).
+
+| Как поджечь | Ключ в `ignition.causes` |
 |---|---|
-| Огниво / огненный заряд | всегда |
-| Огонь, лава, молния, распространение огня | всегда |
-| Другой взрыв (цепная детонация) | `settings.dynamites.chain-radius` > 0 |
-| Удар кулаком | `settings.dynamites.punch-ignites: true` |
-| Сразу из руки | `settings.dynamites.auto-ignite: true` |
-
-Переопределить режим для конкретного динамита можно ключом `auto-ignite:` в
-его файле в `dynamites/` — он главнее глобальной настройки.
+| Огниво | `FLINT_AND_STEEL` |
+| Огненный заряд / файербол | `FIRE_CHARGE` |
+| Огонь, распространение огня, горящая стрела | `FIRE` |
+| Лава | `LAVA` |
+| Другой взрыв (цепная детонация) | `EXPLOSION` |
+| Молния | `LIGHTNING` |
+| Удар кулаком | `PUNCH` |
 
 Установка идёт через обычный `BlockPlaceEvent`, поэтому защиту приватов QPS
 не обойти. Сломанный установленный динамит возвращается предметом с PDC.
+
+## Настройки динамита (файл `dynamites/*.yml`)
+
+| Секция | Ключи | За что отвечает |
+|---|---|---|
+| `placement` | `placeable`, `consume-on-use`, `permission`, `permission-required` | можно ли ставить, тратить ли предмет, своё право |
+| `ignition` | `auto`, `causes`, `delay-ticks` | **автоподжог**, чем можно поджечь, задержка |
+| `ignition.chain` | `enabled`, `can-be-chained`, `radius`, `delay-ticks` | цепная детонация |
+| `explosion` | `type`, `radius-multiplier`, `power`, `fire`, `fuse-seconds`, `fuse-spread-ticks`, `works-in-water`, `works-in-lava`, `siege-damage`, `max-blocks` | параметры взрыва |
+| `damage` | `cut-entity`, `cut-player`, `multiplier` | урон игрокам и мобам |
+| `breaking` | `vanilla-blocklist`, `max-resistance`, `resistance-scale`, `default-drop-chance`, `scan-radius`, `blocks` | что именно ломает |
+| `transforms` | `MATERIAL: {to, chance}` | деградация (древние обломки → обсидиан) |
+| `raid-block` | `enabled`, `duration-seconds`, `materials`, `radius` | анти-феникс |
+| `limits` | `cooldown-millis`, `max-primed-per-player`, `max-primed-per-chunk`, `worlds` | свои лимиты (`-1` = из config.yml) |
+| `effects` | `on-place`, `on-ignite`, `on-explode` | звук (`entity.tnt.primed`), `category`, `volume`, `pitch`, `particle`, `particle-count`, `spread` |
+| `item` | `material`, `display_name`, `lore`, `glow`, `custom-model-data`, `item-model`, `unbreakable` | предмет |
+| `messages` | `placed`, `ignited` | переопределение сообщений (пусто = из lang) |
+| `recipe` / `craftable` | `shape`, `ingredients`, `custom-type` | крафт, в том числе из других динамитов |
+
+Образец со всеми ключами и комментариями — `dynamite_a.yml` в ресурсах
+плагина.
 
 ## Как динамит ломает блоки
 
