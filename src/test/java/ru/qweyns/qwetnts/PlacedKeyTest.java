@@ -32,7 +32,7 @@ class PlacedKeyTest {
 
     @Test
     void colorsParsesMiniMessageAndLegacy() {
-        assertEquals("", Colors.strip("<red>привет"));
+        assertEquals("привет", Colors.strip("<red>привет"));
         assertTrue(Colors.toLegacy("<red>привет").startsWith("§"));
         assertTrue(Colors.toLegacy("&cпривет").startsWith("§"));
         assertTrue(Colors.toLegacy("&#ff6b35привет").startsWith("§x"));
@@ -40,7 +40,7 @@ class PlacedKeyTest {
 
     @Test
     void colorsEscapesMini() {
-        assertEquals("\\<red\\>", Colors.escapeMini("<red>"));
+        assertEquals("\\<red>", Colors.escapeMini("<red>"));
         assertNull(Colors.escapeMini(null));
     }
 
