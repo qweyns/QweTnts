@@ -49,13 +49,16 @@ public final class Schedulers {
     /**
      * Выполнить задачу в регионе локации прямо сейчас — безопасно для блоков и сущностей.
      *
-     * <p><b>Почему не {@code runDelayed} с нулевой задержкой:</b> на Folia
-     * {@code RegionScheduler#runDelayed} бросает
+     * <p><b>Почему не {@code runDelayed} с нулевой задержкой:</b> и на Paper,
+     * и на Folia {@code RegionScheduler#runDelayed} бросает
      * {@code IllegalArgumentException: Delay ticks may not be <= 0}. Для
      * «выполнить сразу» у планировщика регионов есть отдельный метод
-     * {@code execute}. Из-за этой разницы первая версия обёртки падала на
-     * каждом поджоге динамита: задачу кидали в {@code runDelayed(…, 0)},
-     * Folia её отвергала, и весь поджог отменялся.</p>
+     * {@code execute} (на Paper {@code FallbackRegionScheduler} всё равно
+     * сводит работу к главному потоку). Из-за этой разницы первая версия
+     * обёртки падала на каждом поджоге динамита: задачу кидали в
+     * {@code runDelayed(…, 0)}, планировщик её отвергал, и поджог
+     * отменялся целиком — с сообщением «Не удалось создать зажжённый
+     * динамит» при живом заряде в мире.</p>
      */
     public static void runAtLocation(@NotNull Plugin plugin,
                                      @NotNull Location loc,
