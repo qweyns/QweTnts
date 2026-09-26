@@ -162,7 +162,7 @@ public final class QweTnts extends JavaPlugin {
      * Полный запуск аддона. Вызывается один раз: либо из {@link #onEnable()},
      * либо позже — по событию включения QweProtectStones.
      */
-    void startup() {
+    public void startup() {
         if (ready) return;
 
         boolean delayed = waitingForQps;
@@ -570,7 +570,7 @@ public final class QweTnts extends JavaPlugin {
      * каждом вызове. Но интеграцию это обнуляет, а поднять её заново без
      * рестарта нельзя — поэтому говорим об этом прямо.</p>
      */
-    void markQpsLost() {
+    public void markQpsLost() {
         if (qpsLost) return;
         qpsLost = true;
         getLogger().severe("QweProtectStones отключился! Интеграция недоступна: приваты больше "
