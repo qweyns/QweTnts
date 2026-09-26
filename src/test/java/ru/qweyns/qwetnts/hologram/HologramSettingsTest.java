@@ -54,11 +54,11 @@ class HologramSettingsTest {
                   max-active: 12
                   follow-projectile: false
                   update-interval-ticks: 10
+                  offset: 2.5
+                  display-range: 40
                   lines:
                     - "Осталось %seconds%"
                   settings:
-                    offset: 2.5
-                    display-range: 40
                     see-through: true
                     shadow: false
                     scale: 1.5
@@ -94,9 +94,9 @@ class HologramSettingsTest {
                 holograms:
                   max-active: 9999
                   update-interval-ticks: 0
+                  offset: 100
+                  display-range: -5
                   settings:
-                    offset: 100
-                    display-range: -5
                     scale: 99
                 """);
 
