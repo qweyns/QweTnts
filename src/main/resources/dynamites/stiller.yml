@@ -1,0 +1,154 @@
+# ============================================================
+#   Стиллер (HolyWorld Lite) — не трогает рельеф, ворует спавнеры
+# ============================================================
+#  Механика HW: заряд НЕ взрывает территорию вокруг себя, но если
+#  подорвать рядом со спавнером, тот выпадает предметом (50 %).
+#  Крафт HW: 5 пороха, 2 песка и 2 «С4 Взрывчатка».
+# ============================================================
+
+name: stiller
+display_name: "Стиллер"
+enabled: true
+
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
+
+ignition:
+  # Как и все заряды HW: не поджигает себя сам, ставится блоком.
+  auto: false
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
+
+explosion:
+  type: STILLER
+  radius-multiplier: 1.0
+  power: 4            # сила нужна только для урона сущностям и осады
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: false
+  works-in-lava: false
+  siege-damage: 1
+  max-blocks: 0
+
+damage:
+  cut-entity: 0
+  cut-player: 0
+  multiplier: 1.0
+
+# Ключевая настройка: destructive: false — блоки не ломаются вообще.
+# Список vanilla гасится, правила ломания не применяются, но спавнеры
+# (см. spawner-mining ниже) ищутся досмотром в радиусе scan-radius.
+breaking:
+  destructive: false
+  vanilla-blocklist: true
+  max-resistance: 60
+  resistance-scale: 0.3
+  default-drop-chance: 0
+  scan-radius: 3      # радиус поиска спавнеров вокруг эпицентра
+  blocks:
+
+transforms:
+
+raid-block:
+  enabled: false
+  duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0
+
+# --- Добыча спавнеров ----------------------------------------
+spawner-mining:
+  enabled: true
+  chance: 50          # по HW: 50 % у Стиллера
+  xp: 30
+  keep-entity-type: true
+
+# --- Временные блоки ----------------------------------------
+temporary-blocks:
+  enabled: false
+  material: ICE
+  radius: 2
+  chance: 100
+  duration-seconds: 5
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+
+limits:
+  cooldown-millis: 250
+  max-primed-per-player: 32
+  max-primed-per-chunk: 64
+  worlds:
+    mode: INHERIT
+    allowed-worlds: []
+    blocked-worlds: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: SMOKE
+    particle-count: 4
+    spread: 0.2
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 0.8
+    pitch: 1.2
+    particle: SMOKE
+    particle-count: 6
+    spread: 0.3
+
+item:
+  material: TNT
+  display_name: "<gradient:#A78BFA:#C4B5FD>Стиллер</gradient>"
+  lore:
+    - ""
+    - "<#A79FC0> ▪ <#F2EFFA>Не взрывает территорию вокруг себя."
+    - "<#A79FC0> ▪ <#F2EFFA>Рядом со спавнером: шанс <#FDE68A>50 %<#F2EFFA>, что он выпадет."
+    - ""
+    - "<#A79FC0><italic>Крафт: 5 пороха, 2 песка и 2 «C4 Взрывчатка»."
+  glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
+
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
+recipe:
+  # 5 пороха, 2 песка и 2 C4 — точно как на HolyWorld Lite.
+  shape:
+    - "GCG"
+    - "SGS"
+    - "GCG"
+  ingredients:
+    G: GUNPOWDER
+    S: SAND
+    C:
+      custom-type: c4   # требуется именно C4 по PDC-метке

@@ -1,35 +1,204 @@
-# Динамит A — ×3 радиус урона осаде, радиус взрыва блоков увеличен в 1.5–2 раза,
-# фитиль 5 секунд. Крафт: 5 пороха + 2 песка + 2 ТНТ.
-name: dynamite_a
-display_name: "Динамит A"
+# ============================================================
+#   Динамит A — базовый заряд
+# ============================================================
+#  Здесь перечислены ВСЕ настройки динамита с комментариями.
+#  Значение по умолчанию пишется как в этом файле: всё, что не
+#  нравится — меняете; ключ можно просто удалить, тогда сработает
+#  значение из config.yml (или встроенный дефолт).
+# ============================================================
 
-explosion-type: DYNAMITE_A
-radius-multiplier: 3.0
-siege-damage: 1
+name: dynamite_a          # id динамита (право qwetnts.type.dynamite_a)
+display_name: "Динамит A" # имя для сообщений и команды /qtnt list
+enabled: true             # false — динамит полностью выключен и не грузится
 
-fuse-seconds: 5
-power: 6                 # ванильная TNT = 4
-mode: vanilla
-cut-entity-damage: 0
-works-in-water: false
-works-in-lava: false
+# --- Установка и права --------------------------------------
+placement:
+  placeable: true         # можно ставить блоком (при auto: false)
+  consume-on-use: true    # тратить предмет при установке/поджоге (в креативе не тратится)
+  permission: ""          # пусто = стандартное право qwetnts.type.<name>
+  permission-required: true # false — использовать могут все, даже без права
 
-breakable-blocks: { }
+# --- ПОДЖОГ (ключевой переключатель) ------------------------
+ignition:
+  # true  — загорается сразу из руки ("поджигает сам себя")
+  # false — ставится блоком и ждёт огня
+  # Ключ можно удалить: тогда берётся settings.dynamites.auto-ignite из config.yml
+  auto: false
 
+  # Чем именно можно поджечь установленный заряд.
+  # Доступно: FLINT_AND_STEEL, FIRE_CHARGE, FIRE, LAVA, EXPLOSION, LIGHTNING, PUNCH
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+
+  delay-ticks: 0          # задержка перед поджогом (0 = сразу)
+
+  # Цепная детонация: взрыв поджигает соседние установленные динамиты
+  chain:
+    enabled: true         # сам поджигает соседей
+    can-be-chained: true  # может быть подожжён другим взрывом
+    radius: 4             # радиус поиска соседей (блоков)
+    delay-ticks: 2        # задержка перед поджогом соседа
+
+# --- Взрыв --------------------------------------------------
+explosion:
+  type: DYNAMITE_A        # строковый тип взрыва для QPS (секция explosions в regions.yml)
+  radius-multiplier: 3.0  # множитель радиуса урона осаде (§3.1 ТЗ)
+  power: 6                # мощность: vanilla TNT = 4
+  fire: false             # поджигать ли блоки вокруг
+  fuse-seconds: 5         # фитиль
+  fuse-spread-ticks: 0    # случайный разброс фитиля ±N тиков (0 = точно)
+  works-in-water: false   # не гаснет в воде
+  works-in-lava: false    # не гаснет в лаве
+  siege-damage: 1         # сколько прочности снимает привату
+  max-blocks: 0           # предел разрушенных блоков (0 = без предела)
+
+# --- Урон живым ---------------------------------------------
+damage:
+  cut-entity: 0           # срезать % урона мобам
+  cut-player: 0           # срезать % урона игрокам
+  multiplier: 1.0         # общий множитель урона
+
+# --- Что ломает (модель взрывоустойчивости) ------------------
+breaking:
+  vanilla-blocklist: true # учитывать список блоков от vanilla
+  # Жёсткий потолок сопротивления (обсидиан = 1200, булыжник = 6).
+  max-resistance: 60      # 60 — обычные блоки; обсидиан этот динамит не берёт
+  # Формула vanilla: эффективное сопротивление = (resistance + 0.3) * scale
+  resistance-scale: 0.3
+  default-drop-chance: 100 # шанс, что сломанный блок выпадет предметом
+  scan-radius: 0          # радиус досмотра прочных блоков (0 = как в config.yml)
+  blocks: # явные правила: единственный способ пробить обсидиан
+  #  blocks:
+  #    OBSIDIAN:
+  #      break-chance: 100
+  #      drop-chance: 0
+
+# --- Деградация блоков --------------------------------------
+# Блок не исчезает, а становится другим. Два формата:
+#
+#  1) отдельные правила — какой материал во что превращается;
+#  2) цепочка деградации — как стена бункера: каждый взрыв снимает одну
+#     ступень. Проверяется раньше правил ломания, поэтому прочный блок
+#     деградирует, а не вылетает целиком.
+#
+#transforms:
+#  chain:
+#    - ANCIENT_DEBRIS      # первая ступень — самая прочная
+#    - CRYING_OBSIDIAN     # вторая
+#    - OBSIDIAN            # третья
+#    - AIR                 # четвёртая — дыра
+#  chain-chance: 100
+#
+#  # Отдельные правила для материалов вне цепочки:
+#  REINFORCED_DEEPSLATE:
+#    to: OBSIDIAN
+#    chance: 100
+transforms:
+
+# --- Рейд-блок (анти-феникс) --------------------------------
 raid-block:
   enabled: false
   duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0               # 0 — метка только на самой позиции, N — ещё и вокруг
 
+# --- Добыча спавнеров (Фаза 2) ------------------------------
+#  По умолчанию vanilla при взрыве просто УДАЛЯЕТ спавнер без дропа.
+#  Здесь спавнер можно выбить предметом — с шансом и опытом.
+spawner-mining:
+  enabled: true            # false — спавнеры исчезают, как в vanilla
+  chance: 25               # шанс выпадения спавнера предметом (0..100; 0 — не выпадает)
+  xp: 15                   # сколько опыта выпадет (0 — без опыта)
+  keep-entity-type: true   # сохранить тип mob'а в предмете (иначе будет пустой)
+
+# --- Временные блоки (Фаза 2) ------------------------------
+#  Взрыв оставляет вокруг эпицентра временный материал (например, лёд),
+#  а через N секунд всё возвращается как было. Учёт переживает рестарт.
+temporary-blocks:
+  enabled: false           # true — включить (для примера смотрите shockwave.yml)
+  material: ICE            # чем заменить
+  radius: 3                # радиус сферы вокруг эпицентра (1..8)
+  chance: 100              # шанс поставить на конкретную позицию (0..100)
+  duration-seconds: 30     # через сколько секунд вернуть исходный блок
+  # В какой материал можно «заливать» временный блок.
+  # По умолчанию (ключ удалён) — AIR, CAVE_AIR, WATER, LAVA.
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+    - LAVA
+
+# --- Ограничения (-1 = взять из config.yml) -----------------
+limits:
+  cooldown-millis: -1     # свой кулдаун установки/поджога
+  max-primed-per-player: -1
+  max-primed-per-chunk: -1
+  worlds:
+    mode: INHERIT         # INHERIT | ALLOWED | BLOCKED
+    allowed-worlds: []
+    blocked-worlds: []
+
+# --- Эффекты ------------------------------------------------
+effects:
+  on-place:
+    sound: ""             # ключ звука (например block.stone.place)
+    category: BLOCKS      # MASTER, MUSIC, RECORDS, WEATHER, BLOCKS, PLAYERS, AMBIENT, NEUTRAL
+    volume: 0.8
+    pitch: 1.0
+    particle: ""          # имя Particle (EXPLOSION, FLAME, SMOKE ...)
+    particle-count: 0
+    spread: 0.3
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: FLAME
+    particle-count: 6
+    spread: 0.2
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: EXPLOSION
+    particle-count: 1
+    spread: 0.0
+
+# --- Предмет ------------------------------------------------
 item:
   material: TNT
-  display_name: "&6Динамит A"
+  display_name: "<gradient:#FDE68A:#FCD34D>Динамит A</gradient>"
   lore:
     - ""
-    - "&8 • &fРадиус урона осаде в &e3 раза&f больше обычного."
-    - "&8 • &fФитиль: &e5 &fсекунд."
-    - "&8 • &fВредит любым приватах кроме незерита."
-  glow: true
+    - "<#A79FC0> ▪ <#F2EFFA>Радиус взрыва в <#FDE68A>3 раза<#F2EFFA> больше обычного динамита."
+    - "<#A79FC0> ▪ <#F2EFFA>Фитиль: <#FDE68A>5 <#F2EFFA>секунд."
+    - "<#A79FC0> ▪ <#FB7185>Обсидиан не берёт: нужен C4 или Разрывная волна."
+    - ""
+    - "<#A79FC0><italic>Крафт: 5 пороха, 2 песка и 2 обычных динамита."
+  glow: true              # свечение без фейкового зачарования
+  custom-model-data: 0    # 0 — не задавать
+  item-model: ""          # например minecraft:my_dynamite (1.21.4+, ресурс-пак)
+  unbreakable: false
 
+# --- Сообщения (пусто = взять из lang/*.yml) ----------------
+messages:
+  placed: ""
+  ignited: ""
+
+# --- Крафт --------------------------------------------------
+craftable: true
 recipe:
   shape:
     - "GSG"

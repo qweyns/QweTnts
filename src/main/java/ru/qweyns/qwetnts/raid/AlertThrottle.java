@@ -11,10 +11,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class AlertThrottle {
 
     private final Map<UUID, Long> lastRegionAlert = new ConcurrentHashMap<>();
-    private final long cooldownMs;
+    private volatile long cooldownMs;
 
     public AlertThrottle(long cooldownMs) {
         this.cooldownMs = cooldownMs;
+    }
+
+    /** Подхватить новое значение после {@code /qtnt reload} (config.yml перечитан). */
+    public void updateCooldown(long cooldownMs) {
+        this.cooldownMs = Math.max(0L, cooldownMs);
     }
 
     /** @return true если отправить сообщение сейчас разрешено (и помечает таймстамп). */

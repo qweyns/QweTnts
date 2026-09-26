@@ -4,6 +4,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.Nullable;
+import ru.qweyns.qwetnts.dynamite.DynamiteType.Damage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,11 +51,29 @@ public final class DynamiteRegistry {
         if (explosionType == null) return null;
         String key = explosionType.toLowerCase(Locale.ROOT);
         for (DynamiteType t : byId.values()) {
-            if (t.explosionType().toLowerCase(Locale.ROOT).equals(key)) {
+            if (t.explosion().type().toLowerCase(Locale.ROOT).equals(key)) {
                 return t;
             }
         }
         return null;
+    }
+
+    /**
+     * Есть ли тип, который меняет урон взрыва (срезание или множитель).
+     *
+     * <p>Если ни один тип этого не делает, обработчику урона нечего искать
+     * рядом с жертвой — это экономит проход по сущностям на каждый урон
+     * от любого взрыва на сервере.</p>
+     */
+    public boolean modifiesDamage() {
+        for (DynamiteType type : byId.values()) {
+            Damage damage = type.damage();
+            if (damage.cutEntity() != 0 || damage.cutPlayer() != 0
+                    || damage.multiplier() != 1.0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Collection<DynamiteType> all() {

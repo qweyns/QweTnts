@@ -1,41 +1,44 @@
 package ru.qweyns.qwetnts.listener;
 
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.jetbrains.annotations.NotNull;
+import ru.qweyns.qwetnts.config.LangKeys;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.util.Materials;
 
-import java.util.concurrent.TimeUnit;
-
 /**
- * Запрет установки обсидиана/плачущего/древних обломков на месте рейд-блока.
- * Приоритет LOWEST — раньше QPS (HIGH), чтобы не допустить «феникса».
+ * Запрет установки обсидиана/плачущего обсидиана/древних обломков на месте
+ * рейд-блока (анти-феникс из механики HW Lite).
+ *
+ * <p>Приоритет LOWEST — раньше QPS (у него HIGH), чтобы блок даже не начали
+ * ставить. Сообщение и время берутся из lang-файла.</p>
  */
 public final class RaidBlockListener implements Listener {
 
     private final QweTnts plugin;
 
-    public RaidBlockListener(QweTnts plugin) {
+    public RaidBlockListener(@NotNull QweTnts plugin) {
         this.plugin = plugin;
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onPlace(BlockPlaceEvent event) {
-        if (!Materials.RAID_BLOCK_FAMILY.contains(event.getBlock().getType())) return;
-        long until = plugin.raidBlocks().expiresAt(event.getBlock().getLocation());
-        if (until <= 0) return;
+    public void onPlace(@NotNull BlockPlaceEvent event) {
+        Block block = event.getBlock();
+        if (!Materials.RAID_BLOCK_FAMILY.contains(block.getType())) return;
+
+        long until = plugin.raidBlocks().expiresAt(block.getLocation());
+        if (until <= 0L) return;
+
+        Player player = event.getPlayer();
+        if (player.hasPermission("qwetnts.bypass.raidblock")) return;
 
         event.setCancelled(true);
-        long secs = Math.max(1, (until - System.currentTimeMillis()) / 1000L);
-        plugin.lang().send(event.getPlayer(), "error.raid-block", formatDuration(secs));
-    }
-
-    private String formatDuration(long seconds) {
-        long m = TimeUnit.SECONDS.toMinutes(seconds);
-        long s = seconds - m * 60;
-        if (m > 0) return m + " мин " + s + " сек";
-        return s + " сек";
+        plugin.lang().send(player, LangKeys.RAID_BLOCK_DENIED,
+                "%time%", plugin.lang().duration(until - System.currentTimeMillis()));
     }
 }

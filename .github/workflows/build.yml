@@ -36,6 +36,9 @@ jobs:
         working-directory: QweProtectionStones
         run: mvn -B install -DskipTests
 
+      # Без | tee: Actions запускает шаг через bash -e без pipefail, поэтому
+      # код возврата конвейера — это код tee, и падение сборки остаётся
+      # незамеченным (CI был бы зелёным при красных тестах).
       - name: Build QweTnts
         run: mvn -B package
 

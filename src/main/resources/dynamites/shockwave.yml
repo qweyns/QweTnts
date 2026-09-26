@@ -1,59 +1,187 @@
-# Разрывная волна — ломает обсидиан, превращает древние обломки в обсидиан,
-# работает в воде/лаве (уничтожая их), сносит 2 прочности привата за раз,
-# рейд-блок 5 минут.
+# ============================================================
+#   Разрывная волна
+# ============================================================
+#  Ломает обсидиан, работает в воде и лаве (уничтожая их),
+#  превращает древние обломки в обычный обсидиан, сносит
+#  2 прочности привата за раз и оставляет рейд-блок на 5 минут.
+#
+#  Полный список настроек с пояснениями — в dynamite_a.yml.
+# ============================================================
+
 name: shockwave
 display_name: "Разрывная волна"
+enabled: true
 
-explosion-type: SHOCKWAVE
-radius-multiplier: 1.0
-siege-damage: 2
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
 
-fuse-seconds: 4
-power: 4
-mode: vanilla
-cut-entity-damage: 0
-works-in-water: true
-works-in-lava: true
+ignition:
+  auto: false               # ставится блоком и ждёт огня
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
 
-breakable-blocks:
-  OBSIDIAN:
-    chance: 100
-    drop-chance: 0
-  CRYING_OBSIDIAN:
-    chance: 100
-    drop-chance: 0
-  WATER:
-    chance: 100
-    drop-chance: 0
-  LAVA:
-    chance: 100
-    drop-chance: 0
+explosion:
+  type: SHOCKWAVE
+  radius-multiplier: 1.0
+  power: 4
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: true      # не гаснет в воде
+  works-in-lava: true       # не гаснет в лаве
+  siege-damage: 2           # сносит 2 прочности за раз
+  max-blocks: 0
 
-# Древние обломки НЕ ломаются, а деградируют в обсидиан (снесётся следующим взрывом).
-# Ядра уникальных приватов (isCore) трансформация не затрагивает.
-transformable-blocks:
-  ANCIENT_DEBRIS:
-    to: OBSIDIAN
+damage:
+  # Волна почти не калечит игроков: она про блоки, а не про урон.
+  cut-entity: 30
+  cut-player: 60
+  multiplier: 1.0
+
+breaking:
+  vanilla-blocklist: true
+  max-resistance: 1200
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  scan-radius: 4
+  blocks:
+    OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    CRYING_OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    ANCIENT_DEBRIS:
+      break-chance: 100
+      drop-chance: 100      # дроп не выпадает: сначала деградация, см. transforms
+    WATER:                  # уничтожает воду вокруг
+      break-chance: 100
+      drop-chance: 0
+    LAVA:                   # и лаву
+      break-chance: 100
+      drop-chance: 0
+
+# Прочные блоки НЕ исчезают сразу, а деградируют по цепочке — так же, как
+# стена бункера: древние обломки -> плачущий обсидиан -> обсидиан -> дыра.
+# Каждый взрыв снимает одну ступень; цепочка проверяется РАНЬШЕ правил
+# ломания, поэтому ANCIENT_DEBRIS из breaking.blocks деградирует, а не
+# вылетает целиком (раньше правило ломания перебивало трансформацию).
+transforms:
+  # Цепочка деградации: каждый взрыв снимает одну ступень, сверху вниз.
+  chain:
+    - ANCIENT_DEBRIS      # первая ступень — самая прочная
+    - CRYING_OBSIDIAN     # вторая
+    - OBSIDIAN            # третья
+    - AIR                 # четвёртая — дыра
+  chain-chance: 100
+  # Отдельные правила — для материалов вне цепочки. Если материал есть и в
+  # цепочке, и здесь, побеждает цепочка (и об этом пишется в лог).
   REINFORCED_DEEPSLATE:
     to: OBSIDIAN
+    chance: 100
 
 raid-block:
   enabled: true
   duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0
+
+# --- Добыча спавнеров (Фаза 2) ------------------------------
+spawner-mining:
+  enabled: true
+  chance: 50
+  xp: 20
+  keep-entity-type: true
+
+# --- Временные блоки (Фаза 2): «ледяная волна» -------------
+#  Волна замораживает всё вокруг, через 20 секунд лёд тает и
+#  возвращается исходный материал (в т.ч. вода и лава).
+temporary-blocks:
+  enabled: true
+  material: ICE
+  radius: 3
+  chance: 80
+  duration-seconds: 20
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+    - LAVA
+
+limits:
+  cooldown-millis: -1
+  max-primed-per-player: -1
+  max-primed-per-chunk: -1
+  worlds:
+    mode: INHERIT
+    allowed-worlds: []
+    blocked-worlds: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.2
+    particle: SOUL_FIRE_FLAME
+    particle-count: 8
+    spread: 0.3
+  on-explode:
+    sound: entity.lightning_bolt.thunder
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: EXPLOSION_EMITTER
+    particle-count: 1
+    spread: 0.0
 
 item:
   material: TNT
-  display_name: "&bРазрывная волна"
+  display_name: "<gradient:#A78BFA:#F9A8D4>Разрывная волна</gradient>"
   lore:
     - ""
-    - "&8 • &fРадиус как у обычного динамита."
-    - "&8 • &fЛомает обсидиан, работает в воде и лаве."
-    - "&8 • &fПревращает древние обломки в обычный обсидиан."
-    - "&8 • &fСносит &b2 прочности&f привата за раз."
-    - "&8 • &cРейд-блок 5 минут на месте взрыва."
+    - "<#A79FC0> ▪ <#F2EFFA>Радиус как у обычного динамита."
+    - "<#A79FC0> ▪ <#F2EFFA>Ломает блоки в воде и лаве."
+    - "<#A79FC0> ▪ <#F2EFFA>Ломает обсидиан и блок незеритового привата."
+    - "<#A79FC0> ▪ <#F2EFFA>Сносит <#FDE68A>2 <#F2EFFA>единицы прочности привата за раз."
+    - "<#A79FC0> ▪ <#FB7185>Рейд-блок на 5 минут на месте взрыва."
+    - ""
+    - "<#A79FC0><italic>Не крафтится · ивенты, сокровищницы, /warp unique, /shop."
   glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
 
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: false        # как на HolyWorld Lite: только ивенты, /warp unique и /shop
 recipe:
+  # Рецепт оставлен в файле, но НЕ регистрируется (см. craftable ниже):
+  # на HolyWorld Lite Разрывную волну не крафтят — её получают с ивентов,
+  # из уникального шалкера /warp unique и в премиум-магазине /shop.
+  # Нужен крафт — поставьте craftable: true.
   shape:
     - "GSG"
     - "GWG"

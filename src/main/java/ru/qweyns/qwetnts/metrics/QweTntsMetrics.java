@@ -45,7 +45,7 @@ public final class QweTntsMetrics {
                 () -> {
                     Map<String, Map<String, Integer>> out = new HashMap<>();
                     for (DynamiteType t : plugin.registry().all()) {
-                        String parent = t.explosionType();
+                        String parent = t.explosion().type();
                         Map<String, Integer> val = new HashMap<>();
                         val.put(t.id(), 1);
                         out.put(parent, val);

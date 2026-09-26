@@ -1,37 +1,146 @@
-# Динамит B — ×10 радиус урона осаде.
-#
-# Крафт по ТЗ: 5 пороха + 2 песка + 2 ДИНАМИТА A. Ингредиент A задаётся через
-# custom-type (ссылается на name динамита A).
+# ============================================================
+#   Динамит B — радиус урона осаде ×10
+# ============================================================
+#  Крафтится ТОЛЬКО из Динамита A: ингредиент A задан как custom-type,
+#  поэтому обычный TNT в этот слот не подойдёт (проверка по PDC).
+#  Полный список настроек с пояснениями — в dynamite_a.yml.
+# ============================================================
+
 name: dynamite_b
 display_name: "Динамит B"
+enabled: true
 
-explosion-type: DYNAMITE_B
-radius-multiplier: 10.0
-siege-damage: 1
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
 
-fuse-seconds: 5
-power: 8                 # мощность блоков умеренная; ×10 — только радиус урона осаде
-mode: ball
-cut-entity-damage: 0
-works-in-water: false
-works-in-lava: false
+ignition:
+  auto: false
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
 
-breakable-blocks: { }
+explosion:
+  type: DYNAMITE_B
+  radius-multiplier: 10.0 # ×10 — только радиус урона осаде
+  power: 8
+  fire: false
+  fuse-seconds: 5
+  fuse-spread-ticks: 0
+  works-in-water: false
+  works-in-lava: false
+  siege-damage: 1
+  max-blocks: 0
+
+damage:
+  cut-entity: 0
+  cut-player: 0
+  multiplier: 1.0
+
+breaking:
+  vanilla-blocklist: true
+  max-resistance: 60
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  scan-radius: 0
+  blocks:
+
+transforms:
 
 raid-block:
   enabled: false
   duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0
+
+# --- Добыча спавнеров (Фаза 2) ------------------------------
+spawner-mining:
+  enabled: true
+  chance: 25
+  xp: 15
+  keep-entity-type: true
+
+# --- Временные блоки (Фаза 2) ------------------------------
+#  Выключены: этот заряд лёд не оставляет. Пример — shockwave.yml.
+temporary-blocks:
+  enabled: false
+  material: ICE
+  radius: 3
+  chance: 100
+  duration-seconds: 30
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+    - LAVA
+
+limits:
+  # Анти-лаг: мощный заряд, поэтому лимиты жёстче глобальных.
+  cooldown-millis: 1000
+  max-primed-per-player: 2
+  max-primed-per-chunk: 6
+  worlds:
+    mode: INHERIT
+    allowed-worlds: []
+    blocked-worlds: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 0.8
+    particle: FLAME
+    particle-count: 8
+    spread: 0.3
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 1.5
+    pitch: 0.7
+    particle: EXPLOSION_EMITTER
+    particle-count: 1
+    spread: 0.0
 
 item:
   material: TNT
-  display_name: "&cДинамит B"
+  display_name: "<gradient:#FB923C:#FDE68A>Динамит B</gradient>"
   lore:
     - ""
-    - "&8 • &fРадиус урона осаде в &c10 раз&f больше обычного."
-    - "&8 • &fФитиль: &c5&f секунд."
-    - "&8 • &cАнти-лаг: не рекомендуется подрывать больше 1 штуки за раз."
+    - "<#A79FC0> ▪ <#F2EFFA>Радиус взрыва в <#FDE68A>10 раз<#F2EFFA> больше обычного динамита."
+    - "<#A79FC0> ▪ <#F2EFFA>Фитиль: <#FDE68A>5 <#F2EFFA>секунд."
+    - "<#A79FC0> ▪ <#FB7185>Обсидиан не берёт: нужен C4 или Разрывная волна."
+    - "<#A79FC0> ▪ <#FB7185>Анти-лаг: не подрывайте больше одной штуки за раз."
+    - ""
+    - "<#A79FC0><italic>Крафт: 5 пороха, 2 песка и 2 «Динамит A»."
   glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
 
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
 recipe:
   shape:
     - "GSG"
@@ -41,4 +150,4 @@ recipe:
     G: GUNPOWDER
     S: SAND
     A:
-      custom-type: dynamite_a
+      custom-type: dynamite_a   # требуется именно Динамит A по PDC

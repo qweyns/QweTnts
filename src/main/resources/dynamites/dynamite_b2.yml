@@ -1,0 +1,169 @@
+# ============================================================
+#   Динамит Б2 (HolyWorld Lite) — ровный куб 25×25×25
+# ============================================================
+#  Механика HW:
+#    • взрывает ровный куб 25×25×25 (не сферу, как vanilla);
+#    • не работает на всех стандартных заприваченных территориях.
+#  Крафт HW: 5 взрывчатого вещества и 4 «Динамит А».
+# ============================================================
+
+name: dynamite_b2
+display_name: "Динамит Б2"
+enabled: true
+
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
+
+ignition:
+  auto: false
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
+
+explosion:
+  type: DYNAMITE_B2
+  radius-multiplier: 1.0
+  power: 8            # влияет на урон сущностям и на порог сопротивления
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: false
+  works-in-lava: false
+  siege-damage: 1
+  max-blocks: 15625   # ровно объём куба 25×25×25
+
+damage:
+  cut-entity: 0
+  cut-player: 0
+  multiplier: 1.0
+
+# Ключевое отличие от остальных зарядов — форма: CUBE, а не SPHERE.
+breaking:
+  destructive: true
+  shape: CUBE
+  # Размер куба в блоках: КУБ ВСЕГДА НЕЧЁТНЫЙ (центр — эпицентр).
+  # Чётное число округляется вверх: 4 даст куб 5×5×5.
+  cube-size: 25       # сторона куба (максимум 33)
+  vanilla-blocklist: true
+  max-resistance: 1200
+  resistance-scale: 0.3
+  default-drop-chance: 100
+  scan-radius: 0
+  # Обсидиановое семейство в кубе тоже вырезается, но без дропа:
+  # иначе заряд превращался бы в ферму обсидиана.
+  blocks:
+    OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    CRYING_OBSIDIAN:
+      break-chance: 100
+      drop-chance: 0
+    ANCIENT_DEBRIS:
+      break-chance: 100
+      drop-chance: 0
+
+transforms:
+
+# По механике HolyWorld Б2 не работает на заприваченных территориях.
+regions:
+  only-outside: true
+
+raid-block:
+  enabled: false
+  duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0
+
+spawner-mining:
+  enabled: true
+  chance: 25
+  xp: 30
+  keep-entity-type: true
+
+temporary-blocks:
+  enabled: false
+  material: ICE
+  radius: 2
+  chance: 100
+  duration-seconds: 5
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+
+limits:
+  cooldown-millis: 1000   # куб на 15 тысяч блоков: ставим не чаще раза в секунду
+  max-primed-per-player: 2
+  max-primed-per-chunk: 2
+  worlds:
+    mode: INHERIT
+    allowed-worlds: []
+    blocked-worlds: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 0.8
+    particle: SMOKE
+    particle-count: 6
+    spread: 0.3
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 1.5
+    pitch: 0.7
+    particle: EXPLOSION_EMITTER
+    particle-count: 1
+    spread: 0.0
+
+item:
+  material: TNT
+  display_name: "<gradient:#67E8F9:#818CF8>Динамит Б2</gradient>"
+  lore:
+    - ""
+    - "<#A79FC0> ▪ <#F2EFFA>Вырезает ровный куб <#FDE68A>25×25×25<#F2EFFA>."
+    - "<#A79FC0> ▪ <#FB7185>Не работает на заприваченных территориях."
+    - ""
+    - "<#A79FC0><italic>Крафт: 5 взрывчатого вещества и 4 «Динамит A»."
+  glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
+
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
+recipe:
+  # 5 взрывчатого вещества и 4 Динамита А — точно как на HolyWorld Lite.
+  shape:
+    - "EAE"
+    - "AEA"
+    - "EAE"
+  ingredients:
+    E:
+      component: explosive      # Взрывчатое вещество (components.yml)
+    A:
+      custom-type: dynamite_a   # и именно Динамит А по PDC-метке

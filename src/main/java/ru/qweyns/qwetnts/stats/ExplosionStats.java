@@ -11,6 +11,8 @@ public final class ExplosionStats {
     private final Map<String, LongAdder> byType = new ConcurrentHashMap<>();
     private final LongAdder raidBlocksTotal = new LongAdder();
     private final LongAdder destroyedRegions = new LongAdder();
+    private final LongAdder spawnersMined = new LongAdder();
+    private final LongAdder temporaryBlocks = new LongAdder();
     private final Map<UUID, LongAdder> destroyedByPlayer = new ConcurrentHashMap<>();
 
     public void recordExplosion(String explosionType) {
@@ -19,6 +21,16 @@ public final class ExplosionStats {
 
     public void recordRaidBlock(int count) {
         raidBlocksTotal.add(count);
+    }
+
+    /** Фаза 2: сколько спавнеров выбито предметом. */
+    public void recordSpawnerMined() {
+        spawnersMined.increment();
+    }
+
+    /** Фаза 2: сколько временных блоков (лёд) поставлено. */
+    public void recordTemporaryBlocks(int count) {
+        if (count > 0) temporaryBlocks.add(count);
     }
 
     public void recordRegionDestroyed(UUID attackerId) {
@@ -40,8 +52,11 @@ public final class ExplosionStats {
         return destroyedRegions.sum();
     }
 
-    public long countByType(String type) {
-        LongAdder a = byType.get(type);
-        return a == null ? 0 : a.sum();
+    public long spawnersMined() {
+        return spawnersMined.sum();
+    }
+
+    public long temporaryBlocks() {
+        return temporaryBlocks.sum();
     }
 }

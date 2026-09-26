@@ -1,0 +1,152 @@
+# ============================================================
+#   Ледяная волна (HolyWorld Lite) — сфера льда на 5 секунд
+# ============================================================
+#  Механика HW: не взрывает территорию, при взрыве образует сферу
+#  из льда радиусом 2 блока на 5 секунд.
+#  Крафт HW: 5 обычного динамита и 4 синего льда.
+# ============================================================
+
+name: ice_wave
+display_name: "Ледяная волна"
+enabled: true
+
+placement:
+  placeable: true
+  consume-on-use: true
+  permission: ""
+  permission-required: true
+
+ignition:
+  # Как и все заряды HW: не поджигает себя сам, ставится блоком.
+  auto: false
+  causes:
+    - FLINT_AND_STEEL
+    - FIRE_CHARGE
+    - FIRE
+    - LAVA
+    - EXPLOSION
+    - LIGHTNING
+  delay-ticks: 0
+  chain:
+    enabled: true
+    can-be-chained: true
+    radius: 4
+    delay-ticks: 2
+
+explosion:
+  type: ICE_WAVE
+  radius-multiplier: 1.0
+  power: 4            # сила нужна только для урона сущностям и осады
+  fire: false
+  fuse-seconds: 4
+  fuse-spread-ticks: 0
+  works-in-water: true
+  works-in-lava: false
+  siege-damage: 1
+  max-blocks: 0
+
+damage:
+  cut-entity: 0
+  cut-player: 0
+  multiplier: 1.0
+
+# Ключевая настройка: destructive: false — блоки не ломаются вообще.
+# Список vanilla гасится, правила ломания не применяются, но спавнеры
+# (см. spawner-mining ниже) ищутся досмотром в радиусе scan-radius.
+breaking:
+  destructive: false
+  vanilla-blocklist: true
+  max-resistance: 60
+  resistance-scale: 0.3
+  default-drop-chance: 0
+  scan-radius: 0      # спавнеры этому заряду не нужны
+  blocks:
+
+transforms:
+
+raid-block:
+  enabled: false
+  duration-seconds: 300
+  materials:
+    - OBSIDIAN
+    - CRYING_OBSIDIAN
+    - ANCIENT_DEBRIS
+    - ENDER_CHEST
+    - ENCHANTING_TABLE
+    - RESPAWN_ANCHOR
+  radius: 0
+
+# --- Добыча спавнеров ----------------------------------------
+spawner-mining:
+  enabled: false
+  chance: 0
+  xp: 0
+  keep-entity-type: true
+
+# --- Временные блоки ----------------------------------------
+temporary-blocks:
+  enabled: true
+  material: ICE
+  radius: 2           # сфера радиусом 2 — как на HolyWorld
+  chance: 100
+  duration-seconds: 5 # держится 5 секунд
+  replace:
+    - AIR
+    - CAVE_AIR
+    - WATER
+
+limits:
+  cooldown-millis: 250
+  max-primed-per-player: 32
+  max-primed-per-chunk: 64
+  worlds:
+    mode: INHERIT
+    allowed-worlds: []
+    blocked-worlds: []
+
+effects:
+  on-ignite:
+    sound: entity.tnt.primed
+    category: BLOCKS
+    volume: 1.0
+    pitch: 1.0
+    particle: SMOKE
+    particle-count: 4
+    spread: 0.2
+  on-explode:
+    sound: entity.generic.explode
+    category: BLOCKS
+    volume: 0.8
+    pitch: 1.2
+    particle: SMOKE
+    particle-count: 6
+    spread: 0.3
+
+item:
+  material: TNT
+  display_name: "<gradient:#67E8F9:#A5F3FC>Ледяная волна</gradient>"
+  lore:
+    - ""
+    - "<#A79FC0> ▪ <#F2EFFA>Не взрывает территорию вокруг себя."
+    - "<#A79FC0> ▪ <#F2EFFA>Сфера льда радиусом 2 блока на 5 секунд."
+    - ""
+    - "<#A79FC0><italic>Крафт: 5 обычного динамита и 4 синего льда."
+  glow: true
+  custom-model-data: 0
+  item-model: ""
+  unbreakable: false
+
+messages:
+  placed: ""
+  ignited: ""
+
+craftable: true
+recipe:
+  # 5 обычного динамита и 4 синего льда — точно как на HolyWorld Lite.
+  shape:
+    - "TBT"
+    - "BTB"
+    - "TBT"
+  ingredients:
+    T: TNT
+    B: BLUE_ICE

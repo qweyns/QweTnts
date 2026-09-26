@@ -2,14 +2,20 @@ package ru.qweyns.qwetnts.raid;
 
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Location;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.jetbrains.annotations.NotNull;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.util.Io;
 import ru.qweyns.qwetnts.util.Schedulers;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -71,10 +77,43 @@ public final class RaidBlockManager {
         return total;
     }
 
-    /** Синхронная загрузка меток с диска. */
+    /**
+     * Аварийная очистка всех меток ({@code /qtnt clear raid-blocks}).
+     *
+     * <p>Раньше единственным способом было удалить raid-blocks.yml при
+     * остановленном сервере: если метки поставились ошибочно (например,
+     * админ менял настройки на живом мире), снимать их пришлось бы вручную
+     * по одной, дожидаясь истечения.</p>
+     */
+    public void clear() {
+        byWorld.clear();
+    }
+
+    /**
+     * Синхронная загрузка меток с диска.
+     *
+     * <p>Файл мог остаться битым: питание выключили на записи, правили руками,
+     * скопировали с другого сервера. {@code loadConfiguration} исключение
+     * внутри гасит, но тогда метки пропадают молча, а в лог уходит SEVERE от
+     * Bukkit без упоминания плагина — админ не поймёт, кто виноват. Читаем
+     * сами: при ошибке откладываем битый файл в сторону и работаем дальше с
+     * пустой картой. Потерять метки неприятно, но лучше, чем падать при
+     * включении сервера или молча снять защиту без объяснения в логе.</p>
+     */
     public void load() {
-        if (!file.exists()) return;
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        if (!file.isFile()) return;
+
+        YamlConfiguration yaml = new YamlConfiguration();
+        try {
+            yaml.load(file);
+        } catch (IOException | InvalidConfigurationException ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "Не удалось прочитать " + file.getName() + ": " + ex.getMessage()
+                            + ". Файл отложен в сторону, метки рейд-блоков сброшены.", ex);
+            quarantine(file);
+            return;
+        }
+
         long now = System.currentTimeMillis();
         for (String worldName : yaml.getKeys(false)) {
             var section = yaml.getConfigurationSection(worldName);
@@ -105,15 +144,46 @@ public final class RaidBlockManager {
         Io.writeAtomic(file.toPath(), dumpToYaml(), plugin.getLogger());
     }
 
+    /**
+     * Откладывает битый файл в сторону, чтобы следующее сохранение не
+     * записало поверх него пустоту: админ сможет разобрать, что случилось.
+     */
+    private void quarantine(@NotNull File broken) {
+        File away = new File(broken.getParentFile(),
+                broken.getName() + ".broken-" + System.currentTimeMillis());
+        try {
+            Files.move(broken.toPath(), away.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            plugin.getLogger().warning("Битый файл сохранён как " + away.getName());
+        } catch (IOException ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "Не удалось переименовать " + broken.getName(), ex);
+        }
+    }
+
     private String dumpToYaml() {
         long now = System.currentTimeMillis();
-        StringWriter sw = new StringWriter(1024);
+
+        // Снимок: метки ставятся в потоке региона, а запись идёт в пуле
+        // ввода-вывода, то есть карта может меняться прямо во время обхода.
+        // Обход ConcurrentHashMap безопасен, но без копии часть меток
+        // просто не попала бы в файл.
+        Map<String, Map<BlockPos, Long>> snapshot = new LinkedHashMap<>();
         for (var worldEntry : byWorld.entrySet()) {
-            sw.write(worldEntry.getKey()).write(":\n");
+            snapshot.put(worldEntry.getKey(), Map.copyOf(worldEntry.getValue()));
+        }
+
+        StringWriter sw = new StringWriter(1024);
+        for (var worldEntry : snapshot.entrySet()) {
+            sw.write(worldEntry.getKey());
+            sw.write(":\n");
             for (var posEntry : worldEntry.getValue().entrySet()) {
                 long v = posEntry.getValue();
                 if (v <= now) continue;
-                sw.write("  ").write(posEntry.getKey().serialize()).write(": ").write(Long.toString(v)).write('\n');
+                sw.write("  ");
+                sw.write(posEntry.getKey().serialize());
+                sw.write(": ");
+                sw.write(Long.toString(v));
+                sw.write('\n');
             }
         }
         return sw.toString();

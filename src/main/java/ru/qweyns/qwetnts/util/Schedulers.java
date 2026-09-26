@@ -22,17 +22,33 @@ public final class Schedulers {
     private Schedulers() {
     }
 
+    /** То же, что {@link #runAtLocation(Plugin, Location, Runnable, long)} без задержки. */
+    public static @NotNull ScheduledTask runAtLocation(@NotNull Plugin plugin,
+                                                       @NotNull Location loc,
+                                                       @NotNull Runnable task) {
+        return runAtLocation(plugin, loc, task, 0L);
+    }
+
     /** Отложенная задача в тиках главного потока мира — безопасно для блоков и сущностей. */
     public static @NotNull ScheduledTask runAtLocation(@NotNull Plugin plugin,
                                                        @NotNull Location loc,
                                                        @NotNull Runnable task,
                                                        long delayTicks) {
+        // RegionScheduler#execute возвращает void, поэтому единая точка входа —
+        // runDelayed (Consumer<ScheduledTask>), она же даёт отменяемую задачу.
         RegionScheduler rs = plugin.getServer().getRegionScheduler();
-        Consumer<ScheduledTask> wrap = t -> task.run();
-        if (delayTicks <= 0) {
-            return rs.execute(plugin, loc, wrap);
-        }
-        return rs.runDelayed(plugin, loc, wrap, delayTicks);
+        return rs.runDelayed(plugin, loc, t -> task.run(), Math.max(0L, delayTicks));
+    }
+
+    /**
+     * Разовое выполнение на глобальном потоке.
+     *
+     * <p>Нужно там, где из обработчика события (поток региона на Folia)
+     * требуется обратиться к игроку: слать сообщение напрямую из чужого
+     * потока нельзя.</p>
+     */
+    public static void runGlobal(@NotNull Plugin plugin, @NotNull Runnable task) {
+        plugin.getServer().getGlobalRegionScheduler().execute(plugin, task);
     }
 
     /** Периодическая глобальная задача (ГП, но привязана к глобальному региону). */
@@ -52,12 +68,5 @@ public final class Schedulers {
         return plugin.getServer().getAsyncScheduler()
                 .runAtFixedRate(plugin, task, initialDelayTicks * 50, periodTicks * 50,
                         TimeUnit.MILLISECONDS);
-    }
-
-    /** Одноразовая async-задача (I/O). */
-    public static @NotNull ScheduledTask runAsync(@NotNull Plugin plugin,
-                                                  @NotNull Runnable task) {
-        return plugin.getServer().getAsyncScheduler()
-                .runNow(plugin, t -> task.run());
     }
 }

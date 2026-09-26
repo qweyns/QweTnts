@@ -11,14 +11,38 @@ depend:
 commands:
   qwetnts:
     description: Администрирование кастомных динамитов
-    usage: /<command> <reload|give|list>
+    usage: /<command> <reload|give|list|help>
     permission: qwetnts.admin
-    aliases: [ qtnt, tnts ]
+    aliases:
+      - qtnt
+      - tnts
 
 permissions:
   qwetnts.admin:
-    description: Доступ к админ-командам /qtnt
+    description: Доступ к командам /qtnt (reload, list, give)
     default: op
   qwetnts.use:
-    description: Активация кастомных динамитов (если нет qwetnts.type.<id>)
+    description: Использование любых динамитов (если нет qwetnts.type.<id>)
     default: true
+  qwetnts.type.<id>:
+    description: >
+      Использование конкретного динамита (например, qwetnts.type.c4).
+      Идентификатор — поле name в файле dynamites/*.yml.
+    default: op
+  qwetnts.cannon:
+    description: >
+      Тнт-пушка: установка блока, зарядка и выстрел.
+      Файл настроек — cannon.yml в корне папки плагина.
+    default: true
+  qwetnts.bypass.world:
+    description: Игнорировать ограничения по мирам и радиусу спавна
+    default: op
+  qwetnts.bypass.region:
+    description: Ставить динамиты в чужих приватах (не влияет на разрушение)
+    default: op
+  qwetnts.bypass.antilag:
+    description: Игнорировать кулдаун активации и лимиты анти-лага
+    default: op
+  qwetnts.bypass.raidblock:
+    description: Ставить обсидиан на месте рейд-блока
+    default: op
