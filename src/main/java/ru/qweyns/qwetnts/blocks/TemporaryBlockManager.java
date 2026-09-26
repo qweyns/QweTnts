@@ -140,6 +140,10 @@ public final class TemporaryBlockManager {
                 continue;
             }
 
+            // Чанк выгружен — не грузим его ради восстановления: лёд там
+            // никого не смущает, а вернём материал, когда чанк загрузится.
+            if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) continue;
+
             try {
                 // getBlockAt/getType тоже внутри try: на Folia чтение
                 // блока чужого региона бросает IllegalStateException.

@@ -351,6 +351,12 @@ public final class DynamiteExplodeListener implements Listener {
                     if (plugin.bunker().isWall(block)) continue; // лёд внутри стены — дырка в механике
                     if (!BlastMath.roll(temp.chance(), random)) continue;
 
+                    // Позиция уже временная (два взрыва подряд): запоминать
+                    // лёд как «исходный материал» нельзя — иначе через
+                    // durationMs лёд вернётся сам в себя и останется в мире
+                    // навсегда. Такую позицию пропускаем.
+                    if (plugin.temporaryBlocks().contains(block)) continue;
+
                     // ВАЖНО: сначала запоминаем, что было ДО подмены.
                     plugin.temporaryBlocks().put(block, temp.durationMs());
                     block.setType(temp.material(), false);

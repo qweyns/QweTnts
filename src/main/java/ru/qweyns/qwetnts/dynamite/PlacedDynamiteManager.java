@@ -217,6 +217,12 @@ public final class PlacedDynamiteManager {
                 // Мир мог быть выгружен — запись не трогаем, она валидна.
                 continue;
             }
+            // Чанк выгружен — не грузим его ради проверки: это и лишний
+            // ввод-вывод, и (на Folia) обращение к чужому региону. Блок там
+            // почти наверняка на месте, а если нет — почистим, когда чанк
+            // вернётся.
+            if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) continue;
+
             Block block = world.getBlockAt(key.x(), key.y(), key.z());
             if (block.getType() != org.bukkit.Material.TNT) {
                 placed.remove(key);
