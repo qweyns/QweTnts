@@ -85,6 +85,7 @@ public record HologramSettings(boolean enabled,
      */
     public static @NotNull HologramSettings from(@Nullable ConfigurationSection section,
                                                  @NotNull HologramSettings defaults) {
+        if (section == null) return defaults;
         return merge(Raw.from(section), defaults);
     }
 

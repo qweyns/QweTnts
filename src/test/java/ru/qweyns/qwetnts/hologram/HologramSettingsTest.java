@@ -34,8 +34,9 @@ class HologramSettingsTest {
         return cfg;
     }
 
+    /** Секция {@code hologram} файла динамита: в тесте это корень YAML. */
     private static ConfigurationSection section(@NotNull String content) {
-        return yaml(content).getConfigurationSection("hologram");
+        return yaml(content);
     }
 
     @Test
