@@ -40,21 +40,7 @@ jobs:
       # код возврата конвейера — это код tee, и падение сборки остаётся
       # незамеченным (CI был бы зелёным при красных тестах).
       - name: Build QweTnts
-        run: |
-          set +e
-          mvn -B package > build.log 2>&1
-          code=$?
-          if [ "$code" -ne 0 ]; then
-            python3 - <<'PYEOF' >> annotations.txt
-          data = open('build.log', encoding='utf-8', errors='replace').read()
-          lines = [l for l in data.splitlines() if '[ERROR]' in l]
-          out = '\n'.join(lines[:80]) if lines else data[-6000:]
-          out = out.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-          print('::error::' + out[:30000])
-          PYEOF
-            cat annotations.txt
-          fi
-          exit $code
+        run: mvn -B package
 
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
