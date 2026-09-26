@@ -208,3 +208,37 @@ recipe:
     G: GUNPOWDER
     S: SAND
     T: TNT
+
+# --- Голограмма над горящим зарядом -------------------------
+# Необязательная секция: накладывается на общие настройки из
+# config.yml (holograms:), а не заменяет их. Чего здесь нет —
+# берётся оттуда. Подробности: docs/holograms.md.
+#
+# Уберите решётки, чтобы задать своему динамиту особую табличку:
+#hologram:
+#  enabled: true
+#  # Провайдер: AUTO | FANCY | DECENT | NATIVE
+#  provider: AUTO
+#  # Предел числа голограмм этого динамита (0 — без предела)
+#  max-active: 0
+#  # Ехать за зарядом (false — стоять там, где подожгли)
+#  follow-projectile: true
+#  # Как часто обновлять отсчёт (тики)
+#  update-interval-ticks: 5
+#  # Высота над зарядом и дальность видимости
+#  offset: 1.1
+#  display-range: 24
+#  # Строки: %seconds% — секунд до взрыва, %ticks% — тиков,
+#  #         %name% — название, %player% — кто поджёг
+#  lines:
+#    - "<#FDE68A>⚡ <#F2EFFA>%seconds% с"
+#    - "<#A79FC0>%name%"
+#  # Внешний вид — те же ключи, что в QweProtectStones
+#  settings:
+#    see-through: false
+#    shadow: true
+#    scale: 1.0
+#    billboard: CENTER
+#    text-alignment: CENTER
+#    background: ""
+#    permission: ""
