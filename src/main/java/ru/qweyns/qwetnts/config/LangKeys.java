@@ -99,6 +99,7 @@ public final class LangKeys {
     /** Версия QweProtectStones, поверх которого работает аддон. */
     public static final String STATS_QPS_VERSION = "stats_qps_version";
     public static final String STATS_QPS_MISSING = "stats_qps_missing";
+    public static final String STATS_HOLOGRAMS = "stats_holograms";
     /** Подписи строк {@code /qtnt clear}. */
     public static final String CLEARED_RAID_BLOCKS = "cleared_raid_blocks";
     public static final String CLEARED_TEMPORARY_BLOCKS = "cleared_temporary_blocks";
@@ -185,6 +186,7 @@ public final class LangKeys {
             STATS_REGIONS_DESTROYED,
             STATS_QPS_VERSION,
             STATS_QPS_MISSING,
+            STATS_HOLOGRAMS,
             CLEARED_RAID_BLOCKS,
             CLEARED_TEMPORARY_BLOCKS,
             CLEARED_PLACED,

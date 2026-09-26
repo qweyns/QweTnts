@@ -293,6 +293,13 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
 
         // Версия QPS: первое, что просят показать, когда 「взрыв не ломает
         // обсидиан」 — по ней сразу видно, что интеграция поднялась.
+        // Голограммы: сколько висит и какие мосты поднялись. Первое, что
+        // показывают, когда «таблички нет» — сразу видно, работает ли
+        // подсистема вообще и чем именно она рисует.
+        row(sender, LangKeys.STATS_HOLOGRAMS,
+                String.valueOf(plugin.hologramManager().activeCount()),
+                "%providers%", plugin.hologramManager().availableProviders());
+
         String qpsVersion = plugin.qpsVersion();
         row(sender, qpsVersion == null ? LangKeys.STATS_QPS_MISSING : LangKeys.STATS_QPS_VERSION,
                 qpsVersion == null ? "" : qpsVersion);
