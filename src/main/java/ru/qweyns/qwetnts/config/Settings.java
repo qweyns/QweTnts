@@ -396,6 +396,27 @@ public final class Settings {
         cfg.addDefault("settings.alerts.discord.timeout-millis", 5000);
         cfg.addDefault("settings.alerts.discord.events",
                 List.of(Discord.DiscordEvent.REGION_DESTROYED.name()));
+
+        // Голограммы над горящими зарядами. Дефолты нужны не для красоты:
+        // без addDefault секция не попадёт в уже существующий config.yml,
+        // и у администратора, обновившего плагин, holograms: просто не
+        // появится — настраивать будет нечего.
+        HologramSettings def = HologramSettings.DEFAULT;
+        cfg.addDefault("holograms.enabled", def.enabled());
+        cfg.addDefault("holograms.provider", def.provider().name());
+        cfg.addDefault("holograms.max-active", def.maxActive());
+        cfg.addDefault("holograms.follow-projectile", def.follow());
+        cfg.addDefault("holograms.update-interval-ticks", def.updateIntervalTicks());
+        cfg.addDefault("holograms.offset", def.offset());
+        cfg.addDefault("holograms.display-range", def.displayRange());
+        cfg.addDefault("holograms.lines", List.copyOf(def.lines()));
+        cfg.addDefault("holograms.settings.see-through", def.seeThrough());
+        cfg.addDefault("holograms.settings.shadow", def.shadow());
+        cfg.addDefault("holograms.settings.scale", def.scale());
+        cfg.addDefault("holograms.settings.billboard", def.billboard());
+        cfg.addDefault("holograms.settings.text-alignment", def.alignment());
+        cfg.addDefault("holograms.settings.background", def.background());
+        cfg.addDefault("holograms.settings.permission", def.permission());
     }
 
     private String str(FileConfiguration cfg, String path, String def) {

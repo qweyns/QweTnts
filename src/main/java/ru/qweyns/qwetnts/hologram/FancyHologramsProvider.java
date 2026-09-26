@@ -15,7 +15,6 @@ import ru.qweyns.qwetnts.util.Schedulers;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -60,19 +59,24 @@ public final class FancyHologramsProvider implements HologramProvider {
         Schedulers.runAtLocation(plugin, at, () -> {
             if (!plugin.isEnabled() || !isAvailable()) return;
 
-            de.oliver.fancyholograms.api.HologramManager manager = manager();
-            if (manager == null) return;
+            try {
+                de.oliver.fancyholograms.api.HologramManager manager = manager();
+                if (manager == null) return;
 
-            Hologram hologram = manager.getHologram(name).orElse(null);
-            if (hologram == null) {
-                hologram = manager.create(new TextHologramData(name, at));
-                manager.addHologram(hologram);
+                Hologram hologram = manager.getHologram(name).orElse(null);
+                if (hologram == null) {
+                    hologram = manager.create(new TextHologramData(name, at));
+                    manager.addHologram(hologram);
+                }
+                if (!(hologram.getData() instanceof TextHologramData data)) return;
+
+                apply(data, at, settings, lines);
+                hologram.forceUpdate();
+                hologram.refreshForViewersInWorld();
+            } catch (RuntimeException ex) {
+                plugin.getLogger().fine("FancyHolograms: не удалось создать голограмму: "
+                        + ex.getMessage());
             }
-            if (!(hologram.getData() instanceof TextHologramData data)) return;
-
-            apply(data, at, settings, lines);
-            hologram.forceUpdate();
-            hologram.refreshForViewersInWorld();
         });
     }
 
@@ -82,16 +86,21 @@ public final class FancyHologramsProvider implements HologramProvider {
         if (name == null || !isAvailable()) return;
 
         Schedulers.runAtLocation(plugin, at, () -> {
-            de.oliver.fancyholograms.api.HologramManager manager = manager();
-            if (manager == null) return;
+            try {
+                de.oliver.fancyholograms.api.HologramManager manager = manager();
+                if (manager == null) return;
 
-            Hologram hologram = manager.getHologram(name).orElse(null);
-            if (hologram == null) return;
-            if (!(hologram.getData() instanceof TextHologramData data)) return;
+                Hologram hologram = manager.getHologram(name).orElse(null);
+                if (hologram == null) return;
+                if (!(hologram.getData() instanceof TextHologramData data)) return;
 
-            data.setLocation(at);
-            data.setText(lines);
-            hologram.forceUpdate();
+                data.setLocation(at);
+                data.setText(lines);
+                hologram.forceUpdate();
+            } catch (RuntimeException ex) {
+                plugin.getLogger().fine("FancyHolograms: не удалось обновить голограмму: "
+                        + ex.getMessage());
+            }
         });
     }
 
@@ -100,10 +109,17 @@ public final class FancyHologramsProvider implements HologramProvider {
         String name = names.remove(id);
         if (name == null) return;
 
-        de.oliver.fancyholograms.api.HologramManager manager = manager();
-        if (manager == null) return;
+        try {
+            de.oliver.fancyholograms.api.HologramManager manager = manager();
+            if (manager == null) return;
 
-        manager.getHologram(name).ifPresent(manager::removeHologram);
+            manager.getHologram(name).ifPresent(manager::removeHologram);
+        } catch (RuntimeException ex) {
+            // Плагин мог отключиться между тиками: наша голограмма — мусор,
+            // который FancyHolograms не сохраняет (persistent=false).
+            plugin.getLogger().fine("FancyHolograms: голограмма уже удалена: "
+                    + ex.getMessage());
+        }
     }
 
     @Override

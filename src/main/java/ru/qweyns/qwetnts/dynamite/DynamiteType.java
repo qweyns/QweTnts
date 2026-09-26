@@ -171,6 +171,23 @@ public final class DynamiteType {
         return ignition.causes().contains(cause);
     }
 
+    /** Радиус цепной детонации: своё значение или глобальное из config.yml. */
+    public int chainRadius(int globalDefault) {
+        int own = ignition.chain().radius();
+        return own < 0 ? Math.max(0, globalDefault) : own;
+    }
+
+    /** Задержка цепного поджога в тиках: своё значение или глобальное. */
+    public long chainDelayTicks(long globalDefault) {
+        long own = ignition.chain().delayTicks();
+        return own < 0 ? Math.max(1L, globalDefault) : own;
+    }
+
+    /** Участвует ли динамит в цепной детонации (как источник и как цель). */
+    public boolean chainEnabled() {
+        return ignition.chain().enabled() && ignition.chain().canBeChained();
+    }
+
     public long cooldownMillis(long globalDefault) {
         long own = limits.cooldownMillis();
         return own < 0 ? globalDefault : own;
@@ -289,13 +306,23 @@ public final class DynamiteType {
         PUNCH
     }
 
-    /** Цепная детонация. */
+    /**
+     * Цепная детонация.
+     *
+     * <p>{@code radius} и {@code delayTicks} равны {@code -1}, если в файле
+     * динамита они не заданы: тогда работают глобальные
+     * {@code settings.dynamites.chain-radius} и
+     * {@code settings.dynamites.chain-delay-ticks}. Раньше в конструкторе
+     * стояли готовые 4 и 2, и глобальные настройки из {@code config.yml}
+     * оказывались мёртвыми: правка «цепляться шире» не влияла ни на один
+     * динамит, где ключ не переопределён явно.</p>
+     */
     public record Chain(boolean enabled,
                         boolean canBeChained,
                         int radius,
                         long delayTicks) {
 
-        public static final Chain DEFAULT = new Chain(true, true, 4, 2L);
+        public static final Chain DEFAULT = new Chain(true, true, -1, -1L);
     }
 
     /** Параметры взрыва. */

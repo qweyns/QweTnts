@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 /**
  * Голограмма над горящим зарядом: обратный отсчёт до взрыва.
@@ -99,7 +100,16 @@ public final class FuseHologramManager {
                 player == null ? "" : player, origin.clone());
 
         if (active.putIfAbsent(id, track) != null) return;   // уже показываем
-        provider(settings).show(id, origin, settings, lines(track));
+
+        try {
+            provider(settings).show(id, origin, settings, lines(track));
+        } catch (RuntimeException ex) {
+            // Провайдер не справился — запись снимаем, иначе менеджер считал
+            // бы голограмму показанной и никогда бы её не убрал.
+            active.remove(id, track);
+            plugin.getLogger().log(Level.FINE,
+                    "Не удалось показать голограмму над " + type.id(), ex);
+        }
     }
 
     /** Заряд взорвался (или исчез) — убрать голограмму сразу, не дожидаясь тика. */
@@ -123,8 +133,21 @@ public final class FuseHologramManager {
                 continue;
             }
 
-            Location at = track.settings().follow() ? point(charge, track.settings()) : track.origin();
-            provider(track.settings()).update(id, at, lines(track));
+            Location at = track.settings().follow()
+                    ? point(charge, track.settings())
+                    : track.origin();
+
+            try {
+                provider(track.settings()).update(id, at, lines(track));
+            } catch (RuntimeException ex) {
+                // Ошибка обновления повторялась бы каждый тик до конца
+                // фитиля — именно так одна поломка превращалась в сотни
+                // одинаковых строк в логе. Снимаем табличку сразу: заряд
+                // без отсчёта всё равно взорвётся как надо.
+                plugin.getLogger().log(Level.FINE,
+                        "Голограмма снята: обновление не удалось", ex);
+                remove(id);
+            }
         }
     }
 

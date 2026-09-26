@@ -34,6 +34,8 @@ public final class NativeHologramProvider implements HologramProvider {
 
     private final QweTnts plugin;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
+    /** Голограммы, снятые до того, как задача создания успела отработать. */
+    private final Set<UUID> cancelled = ConcurrentHashMap.newKeySet();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
 
     public NativeHologramProvider(@NotNull QweTnts plugin) {
@@ -62,6 +64,8 @@ public final class NativeHologramProvider implements HologramProvider {
         }
 
         Location spawnAt = at.clone();
+        cancelled.remove(id);
+
         Schedulers.runAtLocation(plugin, spawnAt, () -> {
             if (!plugin.isEnabled() || active.containsKey(id)) return;
 
@@ -71,6 +75,15 @@ public final class NativeHologramProvider implements HologramProvider {
             TextDisplay display = world.spawn(spawnAt, TextDisplay.class,
                     spawned -> configure(spawned, settings));
             display.text(Colors.format(String.join("\n", lines)));
+
+            // Заряд мог детонировать (или исчезнуть) в тот самый момент, пока
+            // задача ждала своего региона: тогда remove() уже отработал
+            // впустую, а табличка только что появилась. Без этой проверки
+            // она осталась бы в мире навсегда — ни один тик её уже не снимет.
+            if (cancelled.remove(id)) {
+                removeSilently(display);
+                return;
+            }
 
             TextDisplay previous = active.put(id, display);
             if (previous != null && previous != display) {
@@ -90,20 +103,35 @@ public final class NativeHologramProvider implements HologramProvider {
                 active.remove(id, display);
                 return;
             }
-            // follow-projectile выключен — точка та же самая, и телепорт был
-            // бы лишним пакетом всем, кто видит табличку.
-            Location current = display.getLocation();
-            if (current.getWorld() != at.getWorld() || current.distanceSquared(at) > 1e-6) {
-                display.teleport(at);
+
+            try {
+                // follow-projectile выключен — точка та же самая, и телепорт
+                // был бы лишним пакетом всем, кто видит табличку.
+                Location current = display.getLocation();
+                if (current.getWorld() != at.getWorld() || current.distanceSquared(at) > 1e-6) {
+                    // Снаряд мог улететь в соседний регион: на Folia заряд
+                    // перенесёт туда сам сервер, а наш телепорт бросит
+                    // IllegalStateException. Это не поломка — табличка
+                    // догонит снаряд на следующем тике.
+                    display.teleport(at);
+                }
+                display.text(Colors.format(String.join("\n", lines)));
+            } catch (IllegalStateException ex) {
+                plugin.getLogger().fine("Голограмма не обновлена (чужой регион): "
+                        + ex.getMessage());
             }
-            display.text(Colors.format(String.join("\n", lines)));
         });
     }
 
     @Override
     public void remove(@NotNull UUID id) {
         TextDisplay display = active.remove(id);
-        if (display == null) return;
+        if (display == null) {
+            // Голограмма ещё не создана — помечаем, чтобы задача создания
+            // сразу её убрала, а не оставила в мире.
+            cancelled.add(id);
+            return;
+        }
 
         Schedulers.runAtEntity(plugin, display, display::remove);
     }
@@ -113,6 +141,7 @@ public final class NativeHologramProvider implements HologramProvider {
         for (UUID id : active.keySet().toArray(new UUID[0])) {
             remove(id);
         }
+        cancelled.clear();
     }
 
     private void removeSilently(@NotNull TextDisplay display) {

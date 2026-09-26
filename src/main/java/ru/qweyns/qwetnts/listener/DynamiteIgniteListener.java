@@ -1,7 +1,9 @@
 package ru.qweyns.qwetnts.listener;
 
 import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
@@ -17,15 +19,18 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.config.LangKeys;
+import ru.qweyns.qwetnts.config.Settings;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.dynamite.DynamiteType;
-import ru.qweyns.qwetnts.dynamite.DynamiteType.Chain;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.IgniteCause;
 import ru.qweyns.qwetnts.dynamite.PlacedDynamiteManager;
 import ru.qweyns.qwetnts.util.Schedulers;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -104,6 +109,10 @@ public final class DynamiteIgniteListener implements Listener {
 
         IgniteCause cause;
         if (action == Action.LEFT_CLICK_BLOCK) {
+            // Удар кулаком поджигает заряд, только если это разрешено
+            // глобально (settings.dynamites.punch-ignites). Иначе левый клик
+            // — обычная попытка сломать блок, и мы её не перехватываем.
+            if (!plugin.settings().dynamites().punchIgnites()) return;
             cause = IgniteCause.PUNCH;
         } else if (item != null && item.getType() == Material.FLINT_AND_STEEL) {
             cause = IgniteCause.FLINT_AND_STEEL;
@@ -128,63 +137,101 @@ public final class DynamiteIgniteListener implements Listener {
     }
 
     /**
-     * Цепная детонация: любой взрыв поджигает установленные динамиты
-     * в радиусе {@code ignition.chain.radius}.
+     * Цепная детонация: взрыв поджигает установленные динамиты в радиусе
+     * {@code ignition.chain.radius} (или {@code settings.dynamites.chain-radius}).
      *
-     * <p>Сами блоки из списка разрушения убираются — иначе установленный
-     * динамит просто исчез бы, не взорвавшись.</p>
+     * <p>Раньше решение принималось по {@code blockList} — списку блоков,
+     * который собрал vanilla. Радиус из конфига при этом не использовался
+     * вовсе, и механика была сломана в две стороны:</p>
+     *
+     * <ol>
+     *   <li>у неразрушающих динамитов (Стиллер, Ледяная волна) список пуст
+     *       с самого начала — цепочка не работала;</li>
+     *   <li>заряд в трёх блоках от эпицентра поджигался даже при
+     *       {@code chain-radius: 1}, а заряд за тонкой стенкой — нет, потому
+     *       что vanilla его в список не положила.</li>
+     * </ol>
+     *
+     * <p>Теперь источник истины — реестр установленных динамитов: перебираем
+     * его (записей обычно единицы, а не тысячи блоков) и отбираем те, что
+     * ближе радиуса. Сами блоки из списка разрушения убираются — иначе
+     * установленный динамит просто исчез бы, не взорвавшись.</p>
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChainDetonation(@NotNull EntityExplodeEvent event) {
         if (plugin.placedDynamites().isEmpty()) return;
 
-        LocationAndBlocks found = collectChainTargets(event);
-        if (found == null) return;
+        Location center = event.getLocation();
+        World world = center.getWorld();
+        if (world == null) return;
 
-        long delay = Math.max(1L, found.delay());
-        for (Block block : found.blocks()) {
-            PlacedDynamiteManager.Placed placed = plugin.placedDynamites().at(block);
-            if (placed == null) continue;
+        String worldName = world.getName();
+        Settings.Dynamites global = plugin.settings().dynamites();
 
-            DynamiteType type = plugin.registry().byId(placed.typeId());
-            if (type == null) {
-                plugin.placedDynamites().remove(block);
-                continue;
-            }
+        List<Pending> targets = new ArrayList<>();
+        long delay = 0L;
 
-            UUID placer = placed.placedBy();
-            Schedulers.runAtLocation(plugin, block.getLocation(), () -> {
-                if (block.getType() != Material.TNT) return; // успели сломать
-                igniteByChain(block, type, placer == null ? null : plugin.getServer().getPlayer(placer));
-            }, delay);
-        }
-    }
+        for (Map.Entry<PlacedDynamiteManager.Key, PlacedDynamiteManager.Placed> entry
+                : plugin.placedDynamites().entries()) {
+            PlacedDynamiteManager.Key key = entry.getKey();
+            if (!key.world().equals(worldName)) continue;
 
-    private record LocationAndBlocks(@NotNull List<Block> blocks, long delay) {
-    }
-
-    private @Nullable LocationAndBlocks collectChainTargets(@NotNull EntityExplodeEvent event) {
-        List<Block> toIgnite = new ArrayList<>();
-        long delay = 1L;
-
-        for (Block block : event.blockList()) {
-            PlacedDynamiteManager.Placed placed = plugin.placedDynamites().at(block);
-            if (placed == null) continue;
-
-            DynamiteType type = plugin.registry().byId(placed.typeId());
-            if (type == null) continue;
+            DynamiteType type = plugin.registry().byId(entry.getValue().typeId());
+            if (type == null) continue;                     // тип убрали из конфига
             if (!type.canBeIgnitedBy(IgniteCause.EXPLOSION)) continue;
-            if (!type.ignition().chain().canBeChained()) continue;
+            if (!type.chainEnabled()) continue;
 
-            toIgnite.add(block);
-            delay = Math.max(delay, type.ignition().chain().delayTicks());
+            int radius = type.chainRadius(global.chainRadius());
+            if (radius <= 0) continue;
+
+            // Чанк мог быть выгружен — грузить его ради цепочки нельзя: это
+            // и лишний ввод-вывод, и обращение к чужому региону на Folia.
+            if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) continue;
+
+            double dx = (key.x() + 0.5) - center.getX();
+            double dy = (key.y() + 0.5) - center.getY();
+            double dz = (key.z() + 0.5) - center.getZ();
+            if (dx * dx + dy * dy + dz * dz > (double) radius * radius) continue;
+
+            Block block = world.getBlockAt(key.x(), key.y(), key.z());
+            if (block.getType() != Material.TNT) continue;  // запись устарела
+
+            targets.add(new Pending(block, type, entry.getValue().placedBy()));
+            delay = Math.max(delay, type.chainDelayTicks(global.chainDelayTicks()));
         }
 
-        if (toIgnite.isEmpty()) return null;
+        if (targets.isEmpty()) return;
 
         // Заряды, которые этот взрыв поджёг, не должны быть разрушены им же.
-        event.blockList().removeAll(toIgnite);
-        return new LocationAndBlocks(toIgnite, delay);
+        Set<Pos> ignited = new HashSet<>(Math.max(16, targets.size() * 2));
+        for (Pending pending : targets) {
+            ignited.add(new Pos(pending.block().getX(),
+                    pending.block().getY(), pending.block().getZ()));
+        }
+        event.blockList().removeIf(block -> ignited.contains(new Pos(
+                block.getX(), block.getY(), block.getZ())));
+
+        long shotDelay = Math.max(1L, delay);
+        for (Pending pending : targets) {
+            Block block = pending.block();
+            DynamiteType type = pending.type();
+            UUID placer = pending.placedBy();
+
+            Schedulers.runAtLocation(plugin, block.getLocation(), () -> {
+                if (block.getType() != Material.TNT) return; // успели сломать
+                igniteByChain(block, type,
+                        placer == null ? null : plugin.getServer().getPlayer(placer));
+            }, shotDelay);
+        }
+    }
+
+    /** Координаты блока внутри одного мира: дешёвый ключ для сравнения. */
+    private record Pos(int x, int y, int z) {
+    }
+
+    private record Pending(@NotNull Block block,
+                           @NotNull DynamiteType type,
+                           @Nullable UUID placedBy) {
     }
 
     // ------------------------------------------------------------------

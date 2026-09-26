@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.config.DynamiteLoader;
-import ru.qweyns.qwetnts.dynamite.DynamiteEffect;
 import ru.qweyns.qwetnts.util.Materials;
 
 import java.io.File;

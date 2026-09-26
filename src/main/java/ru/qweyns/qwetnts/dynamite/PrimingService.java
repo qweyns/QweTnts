@@ -146,9 +146,20 @@ public final class PrimingService {
             // Голограмма с отсчётом — только над нашими динамитами: ванильный
             // TNT аддон не оформляет. Позицию она обновляет сама по тикам,
             // поэтому снаряд пушки везёт табличку с собой.
+            //
+            // Это украшение, а не часть механики: её отказ не должен
+            // отменять поджог. Раньше вызов жил в общем try, и любое
+            // исключение провайдера оборачивалось «Не удалось создать
+            // зажжённый динамит» — при том, что заряд уже был в мире, а
+            // игрок получал отказ и потраченный предмет.
             if (type != null) {
-                plugin.hologramManager().onIgnite(primed, type,
-                        igniter != null ? igniter.getName() : null);
+                String igniterName = igniter != null ? igniter.getName() : null;
+                try {
+                    plugin.hologramManager().onIgnite(primed, type, igniterName);
+                } catch (RuntimeException ex) {
+                    plugin.getLogger().log(Level.FINE,
+                            "Не удалось показать голограмму над " + type.id(), ex);
+                }
             }
 
             // Звук поджога не играем здесь: он задаётся в effects.on-ignite

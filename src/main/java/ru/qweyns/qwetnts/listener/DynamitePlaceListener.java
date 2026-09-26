@@ -1,6 +1,5 @@
 package ru.qweyns.qwetnts.listener;
 
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -69,7 +68,7 @@ public final class DynamitePlaceListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (!bypassWorld && inSpawnRadius(location, plugin.settings().spawnRadius())) {
+        if (!bypassWorld && Locations.inSpawnRadius(location, plugin.settings().spawnRadius())) {
             plugin.lang().send(player, LangKeys.SPAWN_PROTECTED,
                     "%radius%", String.valueOf(plugin.settings().spawnRadius()));
             event.setCancelled(true);
@@ -178,15 +177,4 @@ public final class DynamitePlaceListener implements Listener {
                 || player.hasPermission("qwetnts.use");
     }
 
-    private boolean inSpawnRadius(@Nullable Location location, int radius) {
-        if (location == null || radius <= 0) return false;
-        World world = location.getWorld();
-        if (world == null || world.getEnvironment() != World.Environment.NORMAL) return false;
-
-        Location spawn = world.getSpawnLocation();
-        if (spawn.getWorld() == null) return false;
-
-        return Math.abs(location.getBlockX() - spawn.getBlockX()) <= radius
-                && Math.abs(location.getBlockZ() - spawn.getBlockZ()) <= radius;
-    }
 }

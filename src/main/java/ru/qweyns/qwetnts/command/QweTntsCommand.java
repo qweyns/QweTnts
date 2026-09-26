@@ -299,8 +299,8 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
         row(sender, LangKeys.STATS_TEMPORARY_BLOCKS, String.valueOf(stats.temporaryBlocks()));
         row(sender, LangKeys.STATS_REGIONS_DESTROYED, String.valueOf(stats.destroyedRegions()));
 
-        // Версия QPS: первое, что просят показать, когда 「взрыв не ломает
-        // обсидиан」 — по ней сразу видно, что интеграция поднялась.
+        // Версия QPS: первое, что просят показать, когда «взрыв не ломает
+        // обсидиан» — по ней сразу видно, что интеграция поднялась.
         // Голограммы: сколько висит и какие мосты поднялись. Первое, что
         // показывают, когда «таблички нет» — сразу видно, работает ли
         // подсистема вообще и чем именно она рисует.

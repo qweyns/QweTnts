@@ -42,8 +42,17 @@ public final class BunkerListener implements Listener {
         this.plugin = plugin;
     }
 
+    /**
+     * Убирает блоки стены из {@code blockList} — значит, сервер их не тронет.
+     *
+     * <p>Приоритет {@code LOWEST}: вычистить надо до того, как список
+     * разрушения начнут разбирать остальные. Идём итератором, а не
+     * {@code removeIf}: список от vanilla — это живая коллекция события, и
+     * пересборка каждого взрыва в новый список стоила бы дороже, чем
+     * выборочное удаление.</p>
+     */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onExplode(@NotNull EntityExplodeEvent event) {
+    public void onStripWall(@NotNull EntityExplodeEvent event) {
         if (!plugin.bunker().isEnabled()) return;
 
         Location center = event.getLocation();
@@ -53,10 +62,29 @@ public final class BunkerListener implements Listener {
         if (plugin.bunker().protectsIn(world)) {
             stripWall(world, event);
         }
+    }
 
-        // Выстрел засчитываем и при выключённой защите: администратор может
-        // захотеть оставить стену уязвимой, но шанс всё равно должен крутиться.
+    /**
+     * Засчитываем выстрел по стене — и только то, что реально взорвалось.
+     *
+     * <p>Слушаем на {@code MONITOR} и с {@code ignoreCancelled = true}: если
+     * взрыв отменил QPS или другой плагин, стена уцелела по определению,
+     * а снаряд не должен списывать стадию. Раньше ролл крутился на
+     * {@code LOWEST}, то есть до чужой отмены: приват гасил взрыв, а стена
+     * всё равно деградировала.</p>
+     *
+     * <p>При этом при выключенной защите стены шанс тоже считается:
+     * администратор может оставить стену уязвимой, но механика должна
+     * работать.</p>
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onShot(@NotNull EntityExplodeEvent event) {
+        if (!plugin.bunker().isEnabled()) return;
         if (!(event.getEntity() instanceof TNTPrimed tnt)) return;
+
+        Location center = event.getLocation();
+        World world = center.getWorld();
+        if (world == null) return;
 
         String kind = tnt.getPersistentDataContainer()
                 .get(plugin.keys().dynamiteKind, PersistentDataType.STRING);
@@ -79,13 +107,6 @@ public final class BunkerListener implements Listener {
         return name == null || name.isBlank() ? null : name;
     }
 
-    /**
-     * Убирает блоки стены из {@code blockList} — значит, сервер их не тронет.
-     *
-     * <p>Идём итератором, а не {@code removeIf}: список от vanilla — это
-     * живая коллекция события, и пересборка каждого взрыва в новый список
-     * стоила бы дороже, чем выборочное удаление.</p>
-     */
     private void stripWall(@NotNull World world, @NotNull EntityExplodeEvent event) {
         Iterator<Block> iterator = event.blockList().iterator();
         while (iterator.hasNext()) {

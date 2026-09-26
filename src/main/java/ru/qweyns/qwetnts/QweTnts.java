@@ -233,13 +233,14 @@ public final class QweTnts extends JavaPlugin {
         if (metrics != null) metrics.shutdown();
         if (discord != null) discord.shutdown();
 
-        if (antiLagCleanupTask != null) antiLagCleanupTask.cancel();
-        if (placedSaveTask != null) placedSaveTask.cancel();
-        if (placedCleanupTask != null) placedCleanupTask.cancel();
+        // Периодику снимаем в одном месте — тем же, что и на /qtnt reload:
+        // иначе список задач в этом классе расходился бы с cancelTasks(),
+        // и какая-нибудь задача (например, сторожевой таймер бункера)
+        // доживала бы до выгрузки мира.
+        cancelTasks();
 
         // Голограммы — первыми: сущности TextDisplay должны исчезнуть до
         // того, как плагин перестанет отвечать на события.
-        if (hologramTask != null) hologramTask.cancel();
         if (hologramManager != null) hologramManager.removeAll();
 
         if (registry != null) registry.clear(getServer());

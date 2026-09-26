@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -107,9 +108,64 @@ class SourceHygieneTest {
                         + "RegionDeleteEvent.Reason упоминать можно.");
     }
 
+    @Test
+    void schedulerNeverAsksForZeroDelay() throws IOException {
+        assumeSourcesAvailable();
+
+        Path schedulers = MAIN.resolve(Path.of("ru", "qweyns", "qwetnts", "util", "Schedulers.java"));
+        assumeTrue(Files.isRegularFile(schedulers), "Schedulers.java должен лежать в util/");
+
+        String source = Files.readString(schedulers, StandardCharsets.UTF_8);
+
+        // RegionScheduler#runDelayed с нулевой задержкой бросает
+        // IllegalArgumentException: Delay ticks may not be <= 0. Из-за этого
+        // каждый поджог падал («Не удалось создать зажжённый динамит»),
+        // а тик голограммы повторял ошибку до конца фитиля.
+        assertTrue(source.contains("getRegionScheduler().execute("),
+                "задача «в регионе локации прямо сейчас» должна уходить в "
+                        + "RegionScheduler#execute, а не в runDelayed(…, 0)");
+
+        assertFalse(source.contains("Math.max(0L, delayTicks)"),
+                "runDelayed не принимает нулевую задержку: округляйте до тика");
+
+        assertTrue(source.contains("Math.max(1L, delayTicks)"),
+                "отложенная задача в регионе должна ждать хотя бы тик");
+    }
+
+    /**
+     * Настройки из {@code config.yml}, о которых написано в документации,
+     * должны реально на что-то влиять.
+     *
+     * <p>{@code punch-ignites}, {@code chain-radius} и
+     * {@code chain-delay-ticks} читались в {@code Settings} и больше нигде
+     * не использовались: пункт документации «удар кулаком поджигает заряд»
+     * был неправдой, а радиус цепной детонации из конфига не работал.</p>
+     */
+    @Test
+    void documentedSettingsAreWired() throws IOException {
+        assumeSourcesAvailable();
+
+        String ignite = sourceOf(Path.of("listener", "DynamiteIgniteListener.java"));
+        String explode = sourceOf(Path.of("listener", "DynamiteExplodeListener.java"));
+
+        assertTrue(ignite.contains("dynamites().punchIgnites()"),
+                "settings.dynamites.punch-ignites должен разрешать или запрещать "
+                        + "поджог ударом, иначе ключ в конфиге ни на что не влияет");
+        assertTrue(ignite.contains("chainRadius("),
+                "settings.dynamites.chain-radius должен задавать радиус цепной детонации");
+        assertTrue(ignite.contains("chainDelayTicks("),
+                "settings.dynamites.chain-delay-ticks должен задавать задержку цепного поджога");
+        assertTrue(explode.contains("recordRaidBlock("),
+                "счётчик рейд-блоков для /qtnt stats должен увеличиваться при отметке");
+    }
+
     // ------------------------------------------------------------------
     // Вспомогательное
     // ------------------------------------------------------------------
+
+    private static String sourceOf(Path relative) throws IOException {
+        return Files.readString(MAIN.resolve(relative), StandardCharsets.UTF_8);
+    }
 
     private static void assumeSourcesAvailable() {
         assumeTrue(Files.isDirectory(MAIN),

@@ -7,9 +7,15 @@ import org.junit.jupiter.api.Test;
 import ru.qweyns.qwetnts.bunker.BunkerLoader;
 import ru.qweyns.qwetnts.util.Materials;
 
+import org.junit.jupiter.api.Assumptions;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -443,6 +449,58 @@ class BundledConfigsTest {
         assertEquals(List.of("ANCIENT_DEBRIS", "CRYING_OBSIDIAN", "OBSIDIAN", "AIR"),
                 yaml.getStringList("transforms.chain"),
                 "деградация идет по ступеням, как у стены бункера");
+    }
+
+    /**
+     * Каждый ключ {@code config.yml} должен быть объявлен дефолтом
+     * в {@code Settings#addDefaults}.
+     *
+     * <p>Иначе «самолечащийся» конфиг не лечит: ключ без {@code addDefault}
+     * не дописывается в уже существующий файл при обновлении плагина, и
+     * администратор его просто не видит. Именно так вела себя секция
+     * {@code holograms}: она читалась, но в старые конфиги не попадала.</p>
+     */
+    @Test
+    void everyConfigKeyHasADefault() throws IOException {
+        YamlConfiguration yaml = load("/config.yml");
+        assertNotNull(yaml, "config.yml должен лежать в ресурсах");
+
+        Path source = Path.of("src", "main", "java", "ru", "qweyns", "qwetnts",
+                "config", "Settings.java");
+        Assumptions.assumeTrue(Files.isRegularFile(source),
+                "тест читает исходник Settings.java и работает только из корня проекта");
+
+        String settingsSource = Files.readString(source, StandardCharsets.UTF_8);
+
+        List<String> keys = new ArrayList<>();
+        collectLeafPaths(yaml, "", keys);
+        assertFalse(keys.isEmpty(), "config.yml не должен быть пустым");
+
+        List<String> withoutDefault = new ArrayList<>();
+        for (String key : keys) {
+            if (!settingsSource.contains("addDefault(\"" + key + "\"")) {
+                withoutDefault.add(key);
+            }
+        }
+
+        assertTrue(withoutDefault.isEmpty(),
+                "ключи config.yml, которых нет в Settings#addDefaults: " + withoutDefault
+                        + ". Без дефолта они не попадут в уже существующие конфиги.");
+    }
+
+    /** Все «листовые» пути секции: {@code settings.dynamites.auto-ignite} и т.п. */
+    private static void collectLeafPaths(ConfigurationSection section,
+                                         String prefix,
+                                         List<String> out) {
+        for (String key : section.getKeys(false)) {
+            String path = prefix.isEmpty() ? key : prefix + "." + key;
+            Object value = section.get(key);
+            if (value instanceof ConfigurationSection child) {
+                collectLeafPaths(child, path, out);
+            } else {
+                out.add(path);
+            }
+        }
     }
 
     /** Путь к встроенному файлу динамита. */

@@ -87,10 +87,47 @@ public final class CustomRecipeListener implements Listener {
             ItemStack[] matrix = inventory.getMatrix();
             if (matrix == null) return;
 
+            // Bukkit подбирает форму рецепта в любом месте сетки: тот же
+            // рецепт 2×2 можно положить и в левый верхний угол, и в правый
+            // нижний. Поэтому сначала находим, где именно лежит крафт, и
+            // только потом накладываем требования на слоты формы — иначе
+            // валидный рецепт молча переставал собираться.
+            int size = matrix.length == 4 ? 2 : 3;
+            int minRow = size;
+            int minCol = size;
+            int maxRow = -1;
+            int maxCol = -1;
+
+            for (int i = 0; i < matrix.length; i++) {
+                ItemStack stack = matrix[i];
+                if (stack == null || stack.getType().isAir()) continue;
+
+                int row = i / size;
+                int col = i % size;
+                minRow = Math.min(minRow, row);
+                minCol = Math.min(minCol, col);
+                maxRow = Math.max(maxRow, row);
+                maxCol = Math.max(maxCol, col);
+            }
+
+            if (maxRow < 0) {
+                inventory.setResult(null);
+                return;
+            }
+
             for (Map.Entry<Integer, String> entry : requirements.entrySet()) {
-                int slot = entry.getKey();
+                int row = entry.getKey() / 3;
+                int col = entry.getKey() % 3;
                 String kind = entry.getValue();
 
+                // Позиция за пределами того места, которое занял крафт, —
+                // значит форма не совпала, и результата быть не должно.
+                if (minRow + row > maxRow || minCol + col > maxCol) {
+                    inventory.setResult(null);
+                    return;
+                }
+
+                int slot = (minRow + row) * size + (minCol + col);
                 if (slot < 0 || slot >= matrix.length) {
                     inventory.setResult(null);
                     return;

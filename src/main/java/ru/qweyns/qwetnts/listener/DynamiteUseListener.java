@@ -16,7 +16,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.config.LangKeys;
@@ -76,7 +75,8 @@ public final class DynamiteUseListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (!bypassWorld && inSpawnRadius(player.getLocation(), plugin.settings().spawnRadius())) {
+        if (!bypassWorld && Locations.inSpawnRadius(player.getLocation(),
+                plugin.settings().spawnRadius())) {
             plugin.lang().send(player, LangKeys.SPAWN_PROTECTED,
                     "%radius%", String.valueOf(plugin.settings().spawnRadius()));
             event.setCancelled(true);
@@ -265,15 +265,4 @@ public final class DynamiteUseListener implements Listener {
         return eye.add(eye.getDirection().normalize().multiply(1.2));
     }
 
-    private boolean inSpawnRadius(@Nullable Location location, int radius) {
-        if (location == null || radius <= 0) return false;
-        World world = location.getWorld();
-        if (world == null || world.getEnvironment() != World.Environment.NORMAL) return false;
-
-        Location spawn = world.getSpawnLocation();
-        if (spawn.getWorld() == null) return false;
-
-        return Math.abs(location.getBlockX() - spawn.getBlockX()) <= radius
-                && Math.abs(location.getBlockZ() - spawn.getBlockZ()) <= radius;
-    }
 }

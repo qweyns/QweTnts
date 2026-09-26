@@ -27,6 +27,7 @@ import ru.qweyns.qwetnts.dynamite.DynamiteType.BreakRule;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.Breaking;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.TransformRule;
 import ru.qweyns.qwetnts.util.Effects;
+import ru.qweyns.qwetnts.util.Locations;
 import ru.qweyns.qwetnts.util.Materials;
 import ru.qweyns.qwetnts.util.Schedulers;
 
@@ -151,7 +152,7 @@ public final class DynamiteExplodeListener implements Listener {
             event.blockList().clear();
             return;
         }
-        if (inSpawnRadius(center, plugin.settings().spawnRadius())) {
+        if (Locations.inSpawnRadius(center, plugin.settings().spawnRadius())) {
             event.blockList().clear();
             return;
         }
@@ -523,7 +524,13 @@ public final class DynamiteExplodeListener implements Listener {
                                 @NotNull List<Pending> pending,
                                 boolean scanSpawners) {
         Breaking breaking = type.breaking();
-        if (breaking.blocks().isEmpty() && type.transforms().isEmpty() && !scanSpawners) return;
+        // Цепочка деградации проверяется отдельно: она описана в
+        // transforms.chain, а не в transforms.<материал>, поэтому пустая
+        // карта transforms ещё не значит «досматривать нечего». Без этой
+        // проверки цепочка срабатывала бы только на блоках из vanilla-списка,
+        // а обсидиан и древние обломки туда не попадают вовсе.
+        if (breaking.blocks().isEmpty() && type.transforms().isEmpty()
+                && !type.chain().isEnabled() && !scanSpawners) return;
 
         int radius = type.scanRadius(plugin.settings().antiLag().maxBreakScanRadius());
         RandomGenerator random = BlastMath.random();
@@ -666,8 +673,11 @@ public final class DynamiteExplodeListener implements Listener {
             byChunk.computeIfAbsent(ref, key -> new ArrayList<>()).add(item);
         }
 
-        int perTick = plugin.settings().antiLag().largeExplosionBlocksPerTick();
-        long period = plugin.settings().antiLag().largeExplosionTickPeriod();
+        // Порция в тик — минимум одна позиция: с нулём цикл ниже не сдвигался
+        // бы с места и повесил бы поток. В config.yml значение защищено
+        // (Math.max(32, ...)), но обход должен быть честным и без этой опеки.
+        int perTick = Math.max(1, plugin.settings().antiLag().largeExplosionBlocksPerTick());
+        long period = Math.max(1L, plugin.settings().antiLag().largeExplosionTickPeriod());
 
         long lastDelay = 0L;
 
@@ -774,6 +784,9 @@ public final class DynamiteExplodeListener implements Listener {
         if (!Materials.isEmpty(block.getType()) && !Materials.isLiquid(block.getType())) return;
 
         plugin.raidBlocks().mark(block.getLocation(), item.raidDurationMs());
+        // Счётчик для /qtnt stats. Раньше recordRaidBlock() не вызывал никто,
+        // и строка «отмечено рейд-блоков» всегда показывала ноль.
+        plugin.stats().recordRaidBlock(1);
 
         int radius = item.raidRadius();
         if (radius > 0) {
@@ -878,18 +891,4 @@ public final class DynamiteExplodeListener implements Listener {
         return source instanceof Player player ? player : null;
     }
 
-    private boolean inSpawnRadius(@Nullable Location location, int radius) {
-        if (location == null || radius <= 0) return false;
-        World world = location.getWorld();
-        if (world == null || world.getEnvironment() != World.Environment.NORMAL) return false;
-
-        Location spawn = world.getSpawnLocation();
-        if (spawn.getWorld() == null) return false;
-
-        // Честный радиус (раньше сравнивались модули разностей по осям,
-        // то есть зона была квадратом со стороной 2r, а не кругом).
-        double dx = location.getBlockX() - spawn.getBlockX();
-        double dz = location.getBlockZ() - spawn.getBlockZ();
-        return dx * dx + dz * dz <= (double) radius * radius;
-    }
 }

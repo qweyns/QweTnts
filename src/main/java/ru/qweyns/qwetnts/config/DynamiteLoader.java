@@ -214,15 +214,24 @@ public final class DynamiteLoader {
                 chain = new Chain(
                         chainSection.getBoolean("enabled", true),
                         chainSection.getBoolean("can-be-chained", true),
-                        Math.max(0, chainSection.getInt("radius", 4)),
-                        Math.max(1L, chainSection.getLong("delay-ticks", 2L)));
+                        // -1 — «как в config.yml»: иначе глобальные настройки
+                        // цепочки были бы недостижимы.
+                        chainSection.contains("radius")
+                                ? Math.max(0, chainSection.getInt("radius", 4)) : -1,
+                        chainSection.contains("delay-ticks")
+                                ? Math.max(1L, chainSection.getLong("delay-ticks", 2L)) : -1L);
             }
         } else {
+            // Плоский (устаревший) формат: те же правила наследования.
+            boolean flatEnabled = bool(null, yaml, "chain-detonation", "chain-detonation", true);
             chain = new Chain(
-                    bool(null, yaml, "chain-detonation", "chain-detonation", true),
+                    flatEnabled,
                     true,
-                    integer(null, yaml, "chain-radius", "chain-radius", 4),
-                    longValue(null, yaml, "chain-delay-ticks", "chain-delay-ticks", 2L));
+                    yaml.contains("chain-radius")
+                            ? Math.max(0, integer(null, yaml, "chain-radius", "chain-radius", 4)) : -1,
+                    yaml.contains("chain-delay-ticks")
+                            ? Math.max(1L, longValue(null, yaml, "chain-delay-ticks",
+                                    "chain-delay-ticks", 2L)) : -1L);
         }
 
         return new Ignition(auto, causes,
@@ -626,7 +635,7 @@ public final class DynamiteLoader {
 
         String name = firstNonBlank(
                 section == null ? null : section.getString("display_name"),
-                "&fДинамит " + id);
+                "<#F2EFFA>Динамит " + id);
 
         List<String> lore = sanitizeList(section == null ? null : section.getStringList("lore"));
 
