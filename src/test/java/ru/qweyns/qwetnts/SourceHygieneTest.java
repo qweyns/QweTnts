@@ -76,6 +76,24 @@ class SourceHygieneTest {
     }
 
     @Test
+    void addonWaitsForQpsInsteadOfDisablingItself() throws IOException {
+        assumeSourcesAvailable();
+
+        // Bukkit не всегда выдерживает порядок загрузки: у нас QPS в depend,
+        // а в QPS — QweTnts в softdepend. Цикл разрывается, и аддон может
+        // включиться первым, когда API приватов ещё пусто. Выключение самого
+        // себя в этой ситуации выглядело как «QPS не найден» на сервере, где
+        // QPS прекрасно установлен.
+        assertTrue(readAllSources().contains("PluginEnableEvent"),
+                "аддон должен дожидаться включения QweProtectStones по PluginEnableEvent, "
+                        + "а не отключаться при старте");
+
+        assertEquals(0, countOccurrences("disablePlugin(this)"),
+                "выключать себя из onEnable нельзя: при порядке загрузки «сначала аддон, "
+                        + "потом QPS» это ломает сервер без всякой причины");
+    }
+
+    @Test
     void regionRemovalUsesGuaranteedEvent() throws IOException {
         assumeSourcesAvailable();
 

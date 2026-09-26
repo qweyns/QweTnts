@@ -1,6 +1,7 @@
 package ru.qweyns.qwetnts;
 
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +31,7 @@ import ru.qweyns.qwetnts.listener.CustomRecipeListener;
 import ru.qweyns.qwetnts.listener.DynamiteExplodeListener;
 import ru.qweyns.qwetnts.listener.DynamiteIgniteListener;
 import ru.qweyns.qwetnts.listener.DynamitePlaceListener;
+import ru.qweyns.qwetnts.listener.QpsLifecycleListener;
 import ru.qweyns.qwetnts.listener.DynamiteUseListener;
 import ru.qweyns.qwetnts.listener.RaidBlockListener;
 import ru.qweyns.qwetnts.listener.RaidLoggingListener;
@@ -41,6 +43,7 @@ import ru.qweyns.qwetnts.stats.ExplosionStats;
 import ru.qweyns.qwetnts.util.Schedulers;
 import ru.qweyns.qwetnts.util.ThreadPools;
 import ru.qweyns.qwetnts.hologram.FuseHologramManager;
+import ru.qweyns.qwetnts.util.Colors;
 
 import java.io.File;
 import java.io.IOException;
@@ -108,6 +111,13 @@ public final class QweTnts extends JavaPlugin {
     private ExecutorService ioPool;
     private QweTntsMetrics metrics;
 
+    /** Аддон полностью инициализирован (есть QPS, конфиги прочитаны). */
+    private boolean ready;
+    /** Аддон включился раньше QPS и ждёт его. */
+    private boolean waitingForQps;
+    /** QPS был, но отключился на ходу — интеграция недоступна до рестарта. */
+    private boolean qpsLost;
+
     private ScheduledTask antiLagCleanupTask;
     private ScheduledTask placedSaveTask;
     private ScheduledTask placedCleanupTask;
@@ -117,12 +127,45 @@ public final class QweTnts extends JavaPlugin {
     @Override
     public void onEnable() {
         if (!QpsApi.isAvailable()) {
-            getLogger().log(Level.SEVERE,
-                    "QweProtectStones не найден! Плагин выключается.");
-            getServer().getPluginManager().disablePlugin(this);
+            awaitQps();
             return;
         }
+        startup();
+    }
 
+    /**
+     * QweProtectStones ещё не включился — ждём, а не выключаемся.
+     *
+     * <p>Bukkit не всегда выдерживает порядок загрузки. В QPS в softdepend
+     * указан QweTnts, а у нас QPS — в depend: получается цикл, Bukkit его
+     * разрывает, и аддон может включиться первым — когда API приватов ещё
+     * пусто. Раньше в этой ситуации аддон отключался, и администратор видел
+     * в логе «QweProtectStones не найден» на сервере, где QPS прекрасно
+     * установлен.</p>
+     *
+     * <p>Теперь аддон остаётся включённым и запускается сам, как только QPS
+     * поднимется: см. {@link ru.qweyns.qwetnts.listener.QpsLifecycleListener}.
+     * Команду регистрируем сразу — администратор должен получить понятный
+     * ответ, а не «неизвестная команда».</p>
+     */
+    private void awaitQps() {
+        waitingForQps = true;
+        getLogger().warning("QweProtectStones ещё не включён (порядок загрузки плагинов) — жду.");
+        getLogger().warning("Аддон запустится сам, как только QPS поднимется. Если QPS не "
+                + "установлен — установите его: без приватов аддон не имеет смысла.");
+
+        getServer().getPluginManager().registerEvents(new QpsLifecycleListener(this), this);
+        registerCommands();
+    }
+
+    /**
+     * Полный запуск аддона. Вызывается один раз: либо из {@link #onEnable()},
+     * либо позже — по событию включения QweProtectStones.
+     */
+    void startup() {
+        if (ready) return;
+
+        boolean delayed = waitingForQps;
         keys = new Keys(this);
 
         saveDefaultConfig();
@@ -172,12 +215,21 @@ public final class QweTnts extends JavaPlugin {
                 ? "включены (" + hologramManager.availableProviders() + ")"
                 : "выключены"));
 
+        ready = true;
+        waitingForQps = false;
+
         getLogger().info("QweTnts включён. Загружено динамитов: " + registry.all().size()
-                + ", автоподжог: " + (settings.dynamites().autoIgnite() ? "включён" : "выключен"));
+                + ", автоподжог: " + (settings.dynamites().autoIgnite() ? "включён" : "выключен")
+                + (delayed ? " (запуск отложенный: ждал QweProtectStones)" : ""));
     }
 
     @Override
     public void onDisable() {
+        if (!ready) {
+            getLogger().info("QweTnts выключается, не дождавшись QweProtectStones.");
+            return;
+        }
+
         if (metrics != null) metrics.shutdown();
         if (discord != null) discord.shutdown();
 
@@ -499,6 +551,43 @@ public final class QweTnts extends JavaPlugin {
 
     public @NotNull Keys keys() { return keys; }
     public @NotNull Settings settings() { return settings; }
+
+    /**
+     * Аддон работает: QPS найден, конфиги прочитаны, слушатели подняты.
+     *
+     * <p>Пока это не так, обращаться к {@link #settings()}, {@link #lang()} и
+     * остальным полям нельзя — они ещё {@code null}.</p>
+     */
+    public boolean isReady() { return ready; }
+
+    /** QPS был, но отключился на ходу: мост честно вернёт {@code null}. */
+    public boolean qpsLost() { return qpsLost; }
+
+    /**
+     * QPS отключился во время работы сервера.
+     *
+     * <p>Аддон не падает: {@code QpsBridge} проверяет доступность API на
+     * каждом вызове. Но интеграцию это обнуляет, а поднять её заново без
+     * рестарта нельзя — поэтому говорим об этом прямо.</p>
+     */
+    void markQpsLost() {
+        if (qpsLost) return;
+        qpsLost = true;
+        getLogger().severe("QweProtectStones отключился! Интеграция недоступна: приваты больше "
+                + "не проверяются. Вернуть её можно только рестартом сервера.");
+    }
+
+    /**
+     * Ответ команде, пока аддон ждёт QPS.
+     *
+     * <p>Без {@link Lang}: в режиме ожидания язык ещё не загружен, а
+     * администратору нужен не стек-трейс, а понятная строка.</p>
+     */
+    public void sendNotReady(@NotNull CommandSender sender) {
+        sender.sendMessage(Colors.format(qpsLost
+                ? "<#FB7185>QweProtectStones отключён — интеграция недоступна. Нужен рестарт сервера."
+                : "<#FDE68A>QweTnts ещё не запущен: жду QweProtectStones."));
+    }
     public @NotNull Lang lang() { return lang; }
     public @NotNull DynamiteRegistry registry() { return registry; }
     public @NotNull ComponentRegistry components() { return components; }

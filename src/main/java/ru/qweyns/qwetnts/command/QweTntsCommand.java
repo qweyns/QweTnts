@@ -43,6 +43,14 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
                              @NotNull Command command,
                              @NotNull String label,
                              @NotNull String[] args) {
+        // Пока аддон ждёт QweProtectStones, Lang ещё не загружен, поэтому
+        // отвечаем напрямую: «неизвестная команда» или стек-трейс здесь
+        // только запутали бы администратора.
+        if (!plugin.isReady()) {
+            plugin.sendNotReady(sender);
+            return true;
+        }
+
         if (args.length == 0) {
             sendHelp(sender);
             return true;
@@ -486,6 +494,8 @@ public final class QweTntsCommand implements CommandExecutor, TabCompleter {
                                                 @NotNull String alias,
                                                 @NotNull String[] args) {
         if (!sender.hasPermission(PERM_ADMIN)) return Collections.emptyList();
+        // Пока аддон ждёт QPS, реестры пусты: предлагать нечего.
+        if (!plugin.isReady()) return Collections.emptyList();
 
         if (args.length == 1) {
             return filter(List.of("help", "reload", "list", "give", "info", "stats", "clear", "bunker"), args[0]);
