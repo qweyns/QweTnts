@@ -39,8 +39,26 @@ jobs:
       # Без | tee: Actions запускает шаг через bash -e без pipefail, поэтому
       # код возврата конвейера — это код tee, и падение сборки остаётся
       # незамеченным (CI был бы зелёным при красных тестах).
+      # mvn пишет в файл, а не в консоль: при падении текст ошибки уходит
+      # в аннотацию шага. Логи джобы скачать нельзя, а «Process completed
+      # with exit code 1» без текста чинить невозможно. Код возврата при
+      # этом не подменяется — сборка по-прежнему красная, если упала.
       - name: Build QweTnts
-        run: mvn -B package
+        run: |
+          set +e
+          mvn -B package > build.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            python3 - <<'PYEOF' > annotations.txt
+          data = open('build.log', encoding='utf-8', errors='replace').read()
+          lines = [l for l in data.splitlines() if '[ERROR]' in l or 'FAIL' in l]
+          out = '\n'.join(lines[:80]) if lines else data[-6000:]
+          out = out.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error::' + out[:30000])
+          PYEOF
+            cat annotations.txt
+          fi
+          exit $code
 
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
