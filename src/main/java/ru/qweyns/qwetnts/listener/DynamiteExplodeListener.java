@@ -99,6 +99,24 @@ public final class DynamiteExplodeListener implements Listener {
     }
 
     // ------------------------------------------------------------------
+    // Голограмма над зарядом
+    // ------------------------------------------------------------------
+
+    /**
+     * Заряд взорвался — голограмма больше не нужна.
+     *
+     * <p>Слушаем и отменённые взрывы (ignoreCancelled = false): заряд при
+     * отмене всё равно исчезает, и табличка провисела бы над пустым местом
+     * до конца фитиля. Приоритет MONITOR — последними, когда исход известен.</p>
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onExplodeClearHologram(@NotNull EntityExplodeEvent event) {
+        if (event.getEntity() instanceof TNTPrimed tnt) {
+            plugin.hologramManager().onDetonated(tnt);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Разрушение блоков
     // ------------------------------------------------------------------
 

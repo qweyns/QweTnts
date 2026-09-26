@@ -3,6 +3,7 @@ package ru.qweyns.qwetnts.util;
 import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,6 +19,29 @@ import java.util.function.Consumer;
  * {@code AsyncScheduler}.</p>
  */
 public final class Schedulers {
+
+    /**
+     * Мы на Folia?
+     *
+     * <p>Проверка по наличию класса ядра Folia, как это принято в плагинах:
+     * отдельного API для определения нет. Нужно затем же, зачем в
+     * QweProtectStones: мосты DecentHolograms и FancyHolograms на Folia не
+     * работают, и там надо сразу брать встроенные голограммы.</p>
+     */
+    private static final boolean FOLIA = hasClass("io.papermc.paper.threadedregions.RegionizedServer");
+
+    public static boolean isFolia() {
+        return FOLIA;
+    }
+
+    private static boolean hasClass(@NotNull String name) {
+        try {
+            Class.forName(name);
+            return true;
+        } catch (ClassNotFoundException | LinkageError ex) {
+            return false;
+        }
+    }
 
     private Schedulers() {
     }
@@ -47,6 +71,19 @@ public final class Schedulers {
      * требуется обратиться к игроку: слать сообщение напрямую из чужого
      * потока нельзя.</p>
      */
+    /**
+     * Задача в «родном» регионе сущности.
+     *
+     * <p>На Folia сущность принадлежит региону, и трогать её (менять текст,
+     * перемещать, удалять) можно только оттуда. Обычный {@code runGlobal}
+     * здесь бросил бы {@link IllegalStateException}.</p>
+     */
+    public static void runAtEntity(@NotNull Plugin plugin,
+                                   @NotNull Entity entity,
+                                   @NotNull Runnable task) {
+        entity.getScheduler().run(plugin, scheduledTask -> task.run(), null);
+    }
+
     public static void runGlobal(@NotNull Plugin plugin, @NotNull Runnable task) {
         plugin.getServer().getGlobalRegionScheduler().execute(plugin, task);
     }

@@ -11,6 +11,7 @@ import ru.qweyns.qwetnts.QweTnts;
 import ru.qweyns.qwetnts.component.ComponentType;
 import ru.qweyns.qwetnts.config.Settings;
 import ru.qweyns.qwetnts.util.Items;
+import ru.qweyns.qwetnts.hologram.HologramSettings;
 
 import java.util.Collections;
 import java.util.EnumMap;
@@ -55,6 +56,7 @@ public final class DynamiteType {
     private final ItemSpec item;
     private final @Nullable Recipe recipe;
     private final Messages messages;
+    private final @Nullable HologramSettings.Raw hologram;
 
     private final ItemStack prototype;
 
@@ -78,7 +80,8 @@ public final class DynamiteType {
                         @NotNull EffectsBundle effects,
                         @NotNull ItemSpec item,
                         @Nullable Recipe recipe,
-                        @NotNull Messages messages) {
+                        @NotNull Messages messages,
+                        @Nullable HologramSettings.Raw hologram) {
         this.id = id;
         this.displayName = displayName;
         this.enabled = enabled;
@@ -98,6 +101,7 @@ public final class DynamiteType {
         this.item = item;
         this.recipe = recipe;
         this.messages = messages;
+        this.hologram = hologram;
         this.prototype = buildItem(plugin, this, item.material(), item.displayName(), item.lore(),
                 item.glow(), item.customModelData(), item.itemModel(), item.unbreakable());
     }
@@ -134,6 +138,8 @@ public final class DynamiteType {
     public @NotNull ItemSpec itemSpec() { return item; }
     public @Nullable Recipe recipe() { return recipe; }
     public @NotNull Messages messages() { return messages; }
+    /** Секция {@code hologram} файла динамита ({@code null} — берутся общие настройки). */
+    public @Nullable HologramSettings.Raw hologram() { return hologram; }
 
     /** Копия предмета динамита с PDC-меткой типа. */
     public @NotNull ItemStack item() {

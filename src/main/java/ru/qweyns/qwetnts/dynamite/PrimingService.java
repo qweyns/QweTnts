@@ -143,6 +143,14 @@ public final class PrimingService {
                 primed.setSource(igniter);
             }
 
+            // Голограмма с отсчётом — только над нашими динамитами: ванильный
+            // TNT аддон не оформляет. Позицию она обновляет сама по тикам,
+            // поэтому снаряд пушки везёт табличку с собой.
+            if (type != null) {
+                plugin.hologramManager().onIgnite(primed, type,
+                        igniter != null ? igniter.getName() : null);
+            }
+
             // Звук поджога не играем здесь: он задаётся в effects.on-ignite
             // файла динамита, иначе настройка молча перебивалась бы
             // ванильным звуком независимо от конфига.

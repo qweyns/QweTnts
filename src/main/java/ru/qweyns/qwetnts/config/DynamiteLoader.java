@@ -27,6 +27,7 @@ import ru.qweyns.qwetnts.dynamite.DynamiteType.Recipe;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.TransformChain;
 import ru.qweyns.qwetnts.dynamite.DynamiteType.TransformRule;
 import ru.qweyns.qwetnts.util.Materials;
+import ru.qweyns.qwetnts.hologram.HologramSettings;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -149,7 +150,18 @@ public final class DynamiteLoader {
                 loadEffects(yaml),
                 itemSpec,
                 recipe,
-                loadMessages(yaml)));
+                loadMessages(yaml),
+                loadHologram(yaml)));
+    }
+
+    /**
+     * Секция {@code hologram} файла динамита — только то, что отличается от
+     * общих настроек в {@code config.yml}. Нет секции — {@code null}, и тогда
+     * работают общие.
+     */
+    private @Nullable HologramSettings.Raw loadHologram(@NotNull YamlConfiguration yaml) {
+        if (!yaml.isConfigurationSection("hologram")) return null;
+        return HologramSettings.Raw.from(yaml.getConfigurationSection("hologram"));
     }
 
     // ------------------------------------------------------------------

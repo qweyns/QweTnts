@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.qweyns.qwetnts.QweTnts;
+import ru.qweyns.qwetnts.hologram.HologramSettings;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,6 +36,7 @@ public final class Settings {
     private final WorldFilter worldFilter;
     private final int spawnRadius;
     private final Alerts alerts;
+    private final HologramSettings holograms;
 
     private Settings(@NotNull QweTnts plugin) {
         this.plugin = plugin;
@@ -54,6 +56,8 @@ public final class Settings {
         this.worldFilter = WorldFilter.fromSection(cfg.getConfigurationSection("settings.worlds"));
         this.spawnRadius = Math.max(0, cfg.getInt("settings.worlds.spawn-radius", 0));
         this.alerts = Alerts.from(plugin, cfg.getConfigurationSection("settings.alerts"));
+        this.holograms = HologramSettings.from(cfg.getConfigurationSection("holograms"),
+                HologramSettings.DEFAULT);
 
         plugin.saveConfig();
     }
@@ -76,6 +80,7 @@ public final class Settings {
     public @NotNull WorldFilter worldFilter() { return worldFilter; }
     public int spawnRadius() { return spawnRadius; }
     public @NotNull Alerts alerts() { return alerts; }
+    public @NotNull HologramSettings holograms() { return holograms; }
 
     // ------------------------------------------------------------------
     // Вложенные группы настроек

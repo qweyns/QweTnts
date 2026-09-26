@@ -40,6 +40,7 @@ import ru.qweyns.qwetnts.raid.RaidBlockManager;
 import ru.qweyns.qwetnts.stats.ExplosionStats;
 import ru.qweyns.qwetnts.util.Schedulers;
 import ru.qweyns.qwetnts.util.ThreadPools;
+import ru.qweyns.qwetnts.hologram.FuseHologramManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,6 +98,7 @@ public final class QweTnts extends JavaPlugin {
     private TemporaryBlockManager temporaryBlocks;
     private PlacedDynamiteManager placedDynamites;
     private PrimingService priming;
+    private FuseHologramManager hologramManager;
     private QpsBridge qps;
     private AntiLag antiLag;
     private AlertThrottle alerts;
@@ -110,6 +112,7 @@ public final class QweTnts extends JavaPlugin {
     private ScheduledTask placedSaveTask;
     private ScheduledTask placedCleanupTask;
     private ScheduledTask bunkerTask;
+    private ScheduledTask hologramTask;
 
     @Override
     public void onEnable() {
@@ -139,6 +142,7 @@ public final class QweTnts extends JavaPlugin {
         temporaryBlocks = new TemporaryBlockManager(this);
         placedDynamites = new PlacedDynamiteManager(this);
         priming = new PrimingService(this);
+        hologramManager = new FuseHologramManager(this);
         qps = new QpsBridge(this);
         antiLag = new AntiLag(() -> settings.antiLag());
         alerts = new AlertThrottle(settings.alerts().attackAlertCooldownMillis());
@@ -164,6 +168,10 @@ public final class QweTnts extends JavaPlugin {
             metrics = new QweTntsMetrics(this, stats);
         }
 
+        getLogger().info("Голограммы: " + (settings.holograms().enabled()
+                ? "включены (" + hologramManager.availableProviders() + ")"
+                : "выключены"));
+
         getLogger().info("QweTnts включён. Загружено динамитов: " + registry.all().size()
                 + ", автоподжог: " + (settings.dynamites().autoIgnite() ? "включён" : "выключен"));
     }
@@ -176,6 +184,11 @@ public final class QweTnts extends JavaPlugin {
         if (antiLagCleanupTask != null) antiLagCleanupTask.cancel();
         if (placedSaveTask != null) placedSaveTask.cancel();
         if (placedCleanupTask != null) placedCleanupTask.cancel();
+
+        // Голограммы — первыми: сущности TextDisplay должны исчезнуть до
+        // того, как плагин перестанет отвечать на события.
+        if (hologramTask != null) hologramTask.cancel();
+        if (hologramManager != null) hologramManager.removeAll();
 
         if (registry != null) registry.clear(getServer());
 
@@ -269,6 +282,14 @@ public final class QweTnts extends JavaPlugin {
             if (bunker.isEnabled()) bunker.tick();
         }, 1200L, 1200L);
 
+        // Голограммы над горящими зарядами: пересчёт отсчёта и позиции.
+        // Интервал из конфига — это и есть частота смены цифр на табличке.
+        long hologramInterval = Math.max(1L, settings.holograms().updateIntervalTicks());
+        hologramTask = Schedulers.runGlobalTimer(this, task -> {
+            if (hologramManager.activeCount() == 0) return;   // нечего обновлять — выходим сразу
+            hologramManager.tick();
+        }, hologramInterval, hologramInterval);
+
         // Чистка «фантомных» записей: блок трогаем — значит, только ГП.
         placedCleanupTask = Schedulers.runGlobalTimer(this, task -> {
             if (placedDynamites.isEmpty()) return;
@@ -342,6 +363,10 @@ public final class QweTnts extends JavaPlugin {
         if (placedCleanupTask != null) {
             placedCleanupTask.cancel();
             placedCleanupTask = null;
+        }
+        if (hologramTask != null) {
+            hologramTask.cancel();
+            hologramTask = null;
         }
         if (temporaryBlocks != null) temporaryBlocks.cancelTasks();
         if (bunkerTask != null) {
@@ -417,6 +442,10 @@ public final class QweTnts extends JavaPlugin {
         settings = Settings.load(this);
         lang.load(settings.language());
 
+        // Настройки голограмм перечитаны — пересобираем провайдеров и
+        // убираем старые голограммы: их оформление могло измениться.
+        if (hologramManager != null) hologramManager.refresh();
+
         // Компоненты — ДО динамитов: рецепт Динамита Б2 требует Взрывчатое
         // вещество, и его материал нужен как плейсхолдер в рецепте.
         int componentsLoaded = loadComponents();
@@ -481,6 +510,7 @@ public final class QweTnts extends JavaPlugin {
     public @NotNull TemporaryBlockManager temporaryBlocks() { return temporaryBlocks; }
     public @NotNull PlacedDynamiteManager placedDynamites() { return placedDynamites; }
     public @NotNull PrimingService priming() { return priming; }
+    public @NotNull FuseHologramManager hologramManager() { return hologramManager; }
     public @NotNull QpsBridge qps() { return qps; }
     public @NotNull AntiLag antiLag() { return antiLag; }
     public @NotNull AlertThrottle alerts() { return alerts; }
