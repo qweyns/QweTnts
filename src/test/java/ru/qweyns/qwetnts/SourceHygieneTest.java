@@ -148,6 +148,9 @@ class SourceHygieneTest {
         String ignite = sourceOf(Path.of("listener", "DynamiteIgniteListener.java"));
         String explode = sourceOf(Path.of("listener", "DynamiteExplodeListener.java"));
 
+        assumeTrue(!ignite.isEmpty() && !explode.isEmpty(),
+                "тест читает исходники слушателей и работает только из корня проекта");
+
         assertTrue(ignite.contains("dynamites().punchIgnites()"),
                 "settings.dynamites.punch-ignites должен разрешать или запрещать "
                         + "поджог ударом, иначе ключ в конфиге ни на что не влияет");
@@ -163,8 +166,12 @@ class SourceHygieneTest {
     // Вспомогательное
     // ------------------------------------------------------------------
 
+    /** Исходник по пути внутри пакета {@code ru/qweyns/qwetnts}. */
     private static String sourceOf(Path relative) throws IOException {
-        return Files.readString(MAIN.resolve(relative), StandardCharsets.UTF_8);
+        Path file = MAIN.resolve(Path.of("ru", "qweyns", "qwetnts")).resolve(relative);
+        return Files.isRegularFile(file)
+                ? Files.readString(file, StandardCharsets.UTF_8)
+                : "";
     }
 
     private static void assumeSourcesAvailable() {
